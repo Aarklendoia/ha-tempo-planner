@@ -22,6 +22,34 @@
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used."
         },
         "description": "Choose the entities the planner reads. Only tomorrow's colour is required."
+      },
+      "settings": {
+        "title": "House",
+        "data": {
+          "offpeak_start": "Off-peak start",
+          "offpeak_end": "Off-peak end",
+          "max_power_kw": "Power available for the planned loads",
+          "peak_load_kwh": "House consumption during peak hours",
+          "battery_capacity_kwh": "Home battery capacity",
+          "battery_reserve_pct": "Home battery reserve",
+          "battery_charge_kw": "Home battery grid charging power",
+          "battery_charge_on_blue": "Charge the home battery before a blue day",
+          "car_capacity_kwh": "Car battery capacity",
+          "car_charge_kw": "Charger power",
+          "car_target_pct": "Car charge target",
+          "dishwasher_minutes": "Dishwasher programme length",
+          "dishwasher_solar_kwh": "Solar forecast for a daytime dishwasher run",
+          "car_min_kwh": "Minimum car charge"
+        },
+        "data_description": {
+          "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
+          "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar.",
+          "battery_charge_on_blue": "The gain on a blue day barely covers the battery's losses.",
+          "car_target_pct": "Used when no target entity is set.",
+          "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
+          "car_min_kwh": "Below this, no charge is planned."
+        },
+        "description": "What the planner needs to know about the house. Every value can be changed later in the integration's options."
       }
     },
     "abort": {
@@ -66,14 +94,16 @@
           "car_charge_kw": "Charger power",
           "car_target_pct": "Car charge target",
           "dishwasher_minutes": "Dishwasher programme length",
-          "dishwasher_solar_kwh": "Solar forecast for a daytime dishwasher run"
+          "dishwasher_solar_kwh": "Solar forecast for a daytime dishwasher run",
+          "car_min_kwh": "Minimum car charge"
         },
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
           "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar.",
           "battery_charge_on_blue": "The gain on a blue day barely covers the battery's losses.",
           "car_target_pct": "Used when no target entity is set.",
-          "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak."
+          "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
+          "car_min_kwh": "Below this, no charge is planned."
         },
         "description": "What the planner needs to know about the house."
       }
@@ -125,6 +155,9 @@
       },
       "night_peak": {
         "name": "Night peak power"
+      },
+      "battery_charge_start": {
+        "name": "Home battery charge start"
       }
     }
   }

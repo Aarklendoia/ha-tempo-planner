@@ -71,6 +71,7 @@ def _settings_schema(values: dict[str, Any]) -> vol.Schema:
         const.CONF_CAR_CAPACITY: (d.car_capacity_kwh, _num(1, 200, 0.1, "kWh")),
         const.CONF_CAR_CHARGE_KW: (d.car_charge_kw, _num(1, 22, 0.1, "kW")),
         const.CONF_CAR_TARGET_PCT: (d.car_target_pct, _num(10, 100, 1, "%")),
+        const.CONF_CAR_MIN: (d.car_min_kwh, _num(0, 50, 0.5, "kWh")),
         const.CONF_DISHWASHER_MINUTES: (
             d.dishwasher_duration.total_seconds() / 60,
             _num(10, 600, 5, "min"),
@@ -90,12 +91,26 @@ class TempoPlannerConfigFlow(ConfigFlow, domain=const.DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        self._entities: dict[str, Any] = {}
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         await self.async_set_unique_id(const.DOMAIN)
         self._abort_if_unique_id_configured()
         if user_input is not None:
-            return self.async_create_entry(title="Tempo Planner", data=user_input)
+            self._entities = user_input
+            return await self.async_step_settings()
         return self.async_show_form(step_id="user", data_schema=_entities_schema({}))
+
+    async def async_step_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """The house, right after the entities."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title="Tempo Planner", data=self._entities, options=user_input
+            )
+        return self.async_show_form(step_id="settings", data_schema=_settings_schema({}))
 
     @staticmethod
     @callback

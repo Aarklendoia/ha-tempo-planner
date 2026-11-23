@@ -51,6 +51,7 @@ class Reason(StrEnum):
     BATTERY_CHARGE = "battery_charge"
     BATTERY_UNKNOWN_SOC = "battery_unknown_soc"
     CAR_FULL = "car_full"
+    CAR_BELOW_MINIMUM = "car_below_minimum"
     CAR_UNKNOWN_SOC = "car_unknown_soc"
     CAR_NOT_PLUGGED = "car_not_plugged"
     CAR_OVERFLOWS_OFFPEAK = "car_overflows_offpeak"
@@ -80,6 +81,8 @@ class Settings:
     car_charge_kw: float = 7.4
     car_target_pct: float = 80.0
     car_efficiency: float = 0.9
+    # Below this, the car is not worth a charging session.
+    car_min_kwh: float = 3.0
     car_margin: timedelta = timedelta(minutes=15)
 
     dishwasher_duration: timedelta = timedelta(hours=5, minutes=10)
@@ -211,7 +214,11 @@ def _plan_car(plan: Plan, inputs: Inputs, settings: Settings) -> None:
         plan.reasons.append(Reason.CAR_FULL)
         return
 
-    plan.car_energy_kwh = round(missing_kwh / settings.car_efficiency, 2)
+    energy_kwh = round(missing_kwh / settings.car_efficiency, 2)
+    if energy_kwh < settings.car_min_kwh:
+        plan.reasons.append(Reason.CAR_BELOW_MINIMUM)
+        return
+    plan.car_energy_kwh = energy_kwh
     duration = timedelta(hours=plan.car_energy_kwh / settings.car_charge_kw)
     # Finish just before the end of the off-peak hours, so the start does not
     # pile up with everything that begins at 22:00.

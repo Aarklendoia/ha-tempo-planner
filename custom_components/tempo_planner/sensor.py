@@ -22,6 +22,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import TempoPlannerConfigEntry, TempoPlannerCoordinator
 from .planner import Color, Plan, Slot
+from .reasons import explain
 
 
 def _start(slot: Slot | None) -> datetime | None:
@@ -32,18 +33,19 @@ def _end(slot: Slot | None) -> datetime | None:
     return slot.end if slot else None
 
 
-def _plan_attributes(plan: Plan) -> dict[str, Any]:
+def _plan_attributes(plan: Plan, language: str) -> dict[str, Any]:
     return {
         "night_start": plan.night_start.isoformat(),
         "night_end": plan.night_end.isoformat(),
         "reasons": [str(r) for r in plan.reasons],
+        "explanation": explain(plan.reasons, language),
     }
 
 
 @dataclass(frozen=True, kw_only=True)
 class PlanSensorDescription(SensorEntityDescription):
     value: Callable[[Plan], Any]
-    attributes: Callable[[Plan], dict[str, Any]] | None = None
+    attributes: Callable[[Plan, str], dict[str, Any]] | None = None
 
 
 SENSORS: tuple[PlanSensorDescription, ...] = (
@@ -68,6 +70,12 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         suggested_display_precision=1,
         value=lambda p: p.battery_grid_kwh,
+    ),
+    PlanSensorDescription(
+        key="battery_charge_start",
+        translation_key="battery_charge_start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value=lambda p: _start(p.battery),
     ),
     PlanSensorDescription(
         key="battery_charge_end",
@@ -100,7 +108,7 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         translation_key="dishwasher_start",
         device_class=SensorDeviceClass.TIMESTAMP,
         value=lambda p: _start(p.dishwasher),
-        attributes=lambda p: {"mode": p.dishwasher_mode},
+        attributes=lambda p, _: {"mode": p.dishwasher_mode},
     ),
     PlanSensorDescription(
         key="dishwasher_end",
@@ -156,4 +164,4 @@ class PlanSensor(CoordinatorEntity[TempoPlannerCoordinator], SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any] | None:
         if self.entity_description.attributes is None:
             return None
-        return self.entity_description.attributes(self.coordinator.data)
+        return self.entity_description.attributes(self.coordinator.data, self.hass.config.language)

@@ -4,7 +4,7 @@ A Home Assistant integration that plans the night's loads for the French EDF
 **Tempo** tariff: when to charge the home battery from the grid, when to charge
 the car, and when the dishwasher should run.
 
-> **Version 0.1 only observes.** It computes a plan and exposes it as sensors;
+> **For now, it only observes.** It computes a plan and exposes it as sensors;
 > it controls nothing yet. Compare the plan with what you would have done for a
 > week or two, then use the sensors in your own automations.
 
@@ -31,10 +31,10 @@ power you allow.
 
 | Sensor | Value |
 | --- | --- |
-| Tomorrow | colour of the next Tempo day; attributes: the night's window and the reasons behind the plan |
+| Tomorrow | colour of the next Tempo day; attributes: the night's window, the reasons behind the plan and their explanation in your language |
 | Home battery target | state of charge to reach, % |
 | Home battery grid charge | energy to take from the grid, kWh |
-| Home battery charge end | when that charge ends |
+| Home battery charge start / end | the battery's slot |
 | Car charge energy | energy to take from the grid, kWh |
 | Car charge start / end | the car's slot |
 | Dishwasher start / end | the dishwasher's slot (`mode`: `night` or `solar`) |
@@ -58,6 +58,14 @@ car's charge target.
 The house itself (capacities, powers, consumption during peak hours, programme
 length…) is set in the integration's options.
 
+## Releases
+
+Versions follow [Conventional Commits](https://www.conventionalcommits.org/):
+`feat:` bumps the minor version, `fix:` the patch. On each push to `main`,
+[release-please](https://github.com/googleapis/release-please) keeps a release
+pull request up to date (changelog and `manifest.json` version); merging it tags
+the version and publishes the GitHub release that HACS offers.
+
 ## Development
 
 ```sh
@@ -77,7 +85,7 @@ Une intégration Home Assistant qui planifie les consommations de la nuit pour
 l'option **Tempo** d'EDF : quand charger la batterie domestique sur le réseau,
 quand charger la voiture, quand faire tourner le lave-vaisselle.
 
-**La version 0.1 se contente d'observer** : elle calcule un plan et l'expose en
+**Pour l'instant, elle se contente d'observer** : elle calcule un plan et l'expose en
 capteurs, sans rien piloter. Comparez-le pendant une ou deux semaines avec ce que
 vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
 

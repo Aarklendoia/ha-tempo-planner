@@ -24,6 +24,24 @@ ENTITIES = {
 }
 
 
+SETTINGS = {
+    const.CONF_OFFPEAK_START: "22:00:00",
+    const.CONF_OFFPEAK_END: "06:00:00",
+    const.CONF_MAX_POWER: 9,
+    const.CONF_PEAK_LOAD: 8,
+    const.CONF_BATTERY_CAPACITY: 10,
+    const.CONF_BATTERY_RESERVE: 5,
+    const.CONF_BATTERY_CHARGE_KW: 3,
+    const.CONF_BATTERY_ON_BLUE: False,
+    const.CONF_CAR_CAPACITY: 87,
+    const.CONF_CAR_CHARGE_KW: 7.4,
+    const.CONF_CAR_TARGET_PCT: 60,
+    const.CONF_CAR_MIN: 3,
+    const.CONF_DISHWASHER_MINUTES: 310,
+    const.CONF_DISHWASHER_SOLAR: 6,
+}
+
+
 @pytest.fixture
 async def house(hass: HomeAssistant, freezer: FrozenDateTimeFactory):
     await hass.config.async_set_time_zone("Europe/Paris")
@@ -40,8 +58,12 @@ async def test_config_flow(hass: HomeAssistant, house) -> None:
     result = await hass.config_entries.flow.async_init(const.DOMAIN, context={"source": "user"})
     assert result["type"] is FlowResultType.FORM
     result = await hass.config_entries.flow.async_configure(result["flow_id"], ENTITIES)
+    # The house comes right after the entities.
+    assert result["step_id"] == "settings"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], SETTINGS)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"] == ENTITIES
+    assert result["options"] == SETTINGS
 
     # Only one planner per house.
     result = await hass.config_entries.flow.async_init(const.DOMAIN, context={"source": "user"})
@@ -57,6 +79,12 @@ async def test_sensors_follow_the_inputs(hass: HomeAssistant, house) -> None:
 
     assert hass.states.get("sensor.tempo_planner_tomorrow").state == "white"
     assert hass.states.get("sensor.tempo_planner_home_battery_target").state == "55"
+    tomorrow = hass.states.get("sensor.tempo_planner_tomorrow")
+    assert "The home battery" not in tomorrow.attributes["explanation"][0]
+    assert tomorrow.attributes["explanation"][0].startswith("The battery charges")
+    assert hass.states.get("sensor.tempo_planner_home_battery_charge_start").state == (
+        "2026-11-23T21:00:00+00:00"
+    )
     assert hass.states.get("sensor.tempo_planner_car_charge_end").state == (
         "2026-11-24T04:45:00+00:00"
     )
@@ -81,24 +109,7 @@ async def test_options_flow(hass: HomeAssistant, house) -> None:
     entities = {k: v for k, v in ENTITIES.items() if k != const.CONF_CAR_TARGET}
     result = await hass.config_entries.options.async_configure(result["flow_id"], entities)
     assert result["step_id"] == "settings"
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {
-            const.CONF_OFFPEAK_START: "22:00:00",
-            const.CONF_OFFPEAK_END: "06:00:00",
-            const.CONF_MAX_POWER: 9,
-            const.CONF_PEAK_LOAD: 8,
-            const.CONF_BATTERY_CAPACITY: 10,
-            const.CONF_BATTERY_RESERVE: 5,
-            const.CONF_BATTERY_CHARGE_KW: 3,
-            const.CONF_BATTERY_ON_BLUE: False,
-            const.CONF_CAR_CAPACITY: 87,
-            const.CONF_CAR_CHARGE_KW: 7.4,
-            const.CONF_CAR_TARGET_PCT: 60,
-            const.CONF_DISHWASHER_MINUTES: 310,
-            const.CONF_DISHWASHER_SOLAR: 6,
-        },
-    )
+    result = await hass.config_entries.options.async_configure(result["flow_id"], SETTINGS)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert entry.options[const.CONF_CAR_TARGET] is None

@@ -51,6 +51,7 @@ def settings_from(config: dict) -> Settings:
         car_capacity_kwh=num(const.CONF_CAR_CAPACITY, default.car_capacity_kwh),
         car_charge_kw=num(const.CONF_CAR_CHARGE_KW, default.car_charge_kw),
         car_target_pct=num(const.CONF_CAR_TARGET_PCT, default.car_target_pct),
+        car_min_kwh=num(const.CONF_CAR_MIN, default.car_min_kwh),
         dishwasher_duration=timedelta(
             minutes=num(
                 const.CONF_DISHWASHER_MINUTES,

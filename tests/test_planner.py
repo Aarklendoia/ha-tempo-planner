@@ -126,6 +126,16 @@ def test_full_car_needs_nothing():
     assert Reason.CAR_FULL in plan.reasons
 
 
+def test_small_car_top_up_is_skipped():
+    plan = make_plan(
+        Inputs(now=at(23, 16), tomorrow=Color.WHITE, car_soc=79, car_target_pct=80),
+        Settings(car_capacity_kwh=87, car_min_kwh=3),
+    )
+    assert plan.car is None
+    assert plan.car_energy_kwh == 0
+    assert Reason.CAR_BELOW_MINIMUM in plan.reasons
+
+
 def test_dishwasher_night_starts_after_the_battery():
     plan = make_plan(Inputs(now=at(23, 16), tomorrow=Color.WHITE), Settings())
     assert plan.dishwasher_mode == "night"
@@ -168,3 +178,14 @@ def test_night_peak_and_limit():
     )
     assert plan.peak_kw > Settings().max_power_kw
     assert Reason.PEAK_OVER_LIMIT in plan.reasons
+
+
+def test_explanations():
+    from custom_components.tempo_planner.reasons import explain
+
+    reasons = [Reason.BATTERY_CHARGE, Reason.CAR_NOT_PLUGGED]
+    assert explain(reasons, "fr")[1] == "La voiture n'est pas branchée."
+    assert explain(reasons, "en-GB")[1] == "The car is not plugged in."
+    # Unknown language: English. Every reason has a text in every language.
+    assert explain(list(Reason), "de") == explain(list(Reason), "en")
+    assert len(explain(list(Reason), "fr")) == len(Reason)

@@ -22,6 +22,34 @@
           "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé."
         },
         "description": "Choisissez les entités que le planificateur lit. Seule la couleur de demain est obligatoire."
+      },
+      "settings": {
+        "title": "Maison",
+        "data": {
+          "offpeak_start": "Début des heures creuses",
+          "offpeak_end": "Fin des heures creuses",
+          "max_power_kw": "Puissance disponible pour les charges planifiées",
+          "peak_load_kwh": "Consommation de la maison en heures pleines",
+          "battery_capacity_kwh": "Capacité de la batterie domestique",
+          "battery_reserve_pct": "Réserve de la batterie domestique",
+          "battery_charge_kw": "Puissance de charge de la batterie sur le réseau",
+          "battery_charge_on_blue": "Charger la batterie avant un jour bleu",
+          "car_capacity_kwh": "Capacité de la batterie de la voiture",
+          "car_charge_kw": "Puissance de la borne",
+          "car_target_pct": "Objectif de charge de la voiture",
+          "dishwasher_minutes": "Durée du programme du lave-vaisselle",
+          "dishwasher_solar_kwh": "Prévision solaire pour un lavage en journée",
+          "car_min_kwh": "Charge minimale de la voiture"
+        },
+        "data_description": {
+          "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
+          "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire.",
+          "battery_charge_on_blue": "Un jour bleu, le gain couvre à peine les pertes de la batterie.",
+          "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
+          "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
+          "car_min_kwh": "En dessous, aucune charge n'est prévue."
+        },
+        "description": "Ce que le planificateur doit savoir de la maison. Tout se change plus tard dans les options de l'intégration."
       }
     },
     "abort": {
@@ -66,14 +94,16 @@
           "car_charge_kw": "Puissance de la borne",
           "car_target_pct": "Objectif de charge de la voiture",
           "dishwasher_minutes": "Durée du programme du lave-vaisselle",
-          "dishwasher_solar_kwh": "Prévision solaire pour un lavage en journée"
+          "dishwasher_solar_kwh": "Prévision solaire pour un lavage en journée",
+          "car_min_kwh": "Charge minimale de la voiture"
         },
         "data_description": {
           "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
           "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire.",
           "battery_charge_on_blue": "Un jour bleu, le gain couvre à peine les pertes de la batterie.",
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
-          "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire."
+          "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
+          "car_min_kwh": "En dessous, aucune charge n'est prévue."
         },
         "description": "Ce que le planificateur doit savoir de la maison."
       }
@@ -125,6 +155,9 @@
       },
       "night_peak": {
         "name": "Pointe de la nuit"
+      },
+      "battery_charge_start": {
+        "name": "Début de charge de la batterie"
       }
     }
   }
