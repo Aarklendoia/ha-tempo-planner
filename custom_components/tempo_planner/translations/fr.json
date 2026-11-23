@@ -1,0 +1,131 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Tempo Planner",
+        "data": {
+          "tomorrow_color_entity": "Couleur Tempo de demain",
+          "solar_tomorrow_entity": "Prévision solaire de demain",
+          "solar_peak_entity": "Heure du pic solaire de demain",
+          "battery_soc_entity": "Charge de la batterie domestique",
+          "car_soc_entity": "Charge de la voiture",
+          "car_plugged_entity": "Voiture branchée",
+          "car_target_entity": "Objectif de charge de la voiture"
+        },
+        "data_description": {
+          "tomorrow_color_entity": "La couleur du prochain jour Tempo (par exemple la prochaine couleur de l'intégration RTE Tempo).",
+          "solar_tomorrow_entity": "Énergie attendue demain, en kWh.",
+          "solar_peak_entity": "Heure de la plus forte puissance solaire prévue demain.",
+          "battery_soc_entity": "Niveau de charge de la batterie de la maison, en %.",
+          "car_soc_entity": "Niveau de charge de la voiture, en %.",
+          "car_plugged_entity": "Un capteur binaire, ou un état du branchement qui vaut « plugged » quand elle est branchée.",
+          "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé."
+        },
+        "description": "Choisissez les entités que le planificateur lit. Seule la couleur de demain est obligatoire."
+      }
+    },
+    "abort": {
+      "already_configured": "Tempo Planner est déjà configuré."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Entités",
+        "data": {
+          "tomorrow_color_entity": "Couleur Tempo de demain",
+          "solar_tomorrow_entity": "Prévision solaire de demain",
+          "solar_peak_entity": "Heure du pic solaire de demain",
+          "battery_soc_entity": "Charge de la batterie domestique",
+          "car_soc_entity": "Charge de la voiture",
+          "car_plugged_entity": "Voiture branchée",
+          "car_target_entity": "Objectif de charge de la voiture"
+        },
+        "data_description": {
+          "tomorrow_color_entity": "La couleur du prochain jour Tempo (par exemple la prochaine couleur de l'intégration RTE Tempo).",
+          "solar_tomorrow_entity": "Énergie attendue demain, en kWh.",
+          "solar_peak_entity": "Heure de la plus forte puissance solaire prévue demain.",
+          "battery_soc_entity": "Niveau de charge de la batterie de la maison, en %.",
+          "car_soc_entity": "Niveau de charge de la voiture, en %.",
+          "car_plugged_entity": "Un capteur binaire, ou un état du branchement qui vaut « plugged » quand elle est branchée.",
+          "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé."
+        }
+      },
+      "settings": {
+        "title": "Maison",
+        "data": {
+          "offpeak_start": "Début des heures creuses",
+          "offpeak_end": "Fin des heures creuses",
+          "max_power_kw": "Puissance disponible pour les charges planifiées",
+          "peak_load_kwh": "Consommation de la maison en heures pleines",
+          "battery_capacity_kwh": "Capacité de la batterie domestique",
+          "battery_reserve_pct": "Réserve de la batterie domestique",
+          "battery_charge_kw": "Puissance de charge de la batterie sur le réseau",
+          "battery_charge_on_blue": "Charger la batterie avant un jour bleu",
+          "car_capacity_kwh": "Capacité de la batterie de la voiture",
+          "car_charge_kw": "Puissance de la borne",
+          "car_target_pct": "Objectif de charge de la voiture",
+          "dishwasher_minutes": "Durée du programme du lave-vaisselle",
+          "dishwasher_solar_kwh": "Prévision solaire pour un lavage en journée"
+        },
+        "data_description": {
+          "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
+          "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire.",
+          "battery_charge_on_blue": "Un jour bleu, le gain couvre à peine les pertes de la batterie.",
+          "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
+          "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire."
+        },
+        "description": "Ce que le planificateur doit savoir de la maison."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "tomorrow": {
+        "name": "Demain",
+        "state": {
+          "blue": "Bleu",
+          "white": "Blanc",
+          "red": "Rouge",
+          "unknown": "Inconnue"
+        }
+      },
+      "battery_target": {
+        "name": "Objectif de la batterie domestique"
+      },
+      "battery_grid_energy": {
+        "name": "Charge de la batterie sur le réseau"
+      },
+      "battery_charge_end": {
+        "name": "Fin de charge de la batterie"
+      },
+      "car_energy": {
+        "name": "Énergie à charger dans la voiture"
+      },
+      "car_charge_start": {
+        "name": "Début de charge de la voiture"
+      },
+      "car_charge_end": {
+        "name": "Fin de charge de la voiture"
+      },
+      "dishwasher_start": {
+        "name": "Départ du lave-vaisselle",
+        "state_attributes": {
+          "mode": {
+            "name": "Mode",
+            "state": {
+              "solar": "Solaire",
+              "night": "Nuit"
+            }
+          }
+        }
+      },
+      "dishwasher_end": {
+        "name": "Fin du lave-vaisselle"
+      },
+      "night_peak": {
+        "name": "Pointe de la nuit"
+      }
+    }
+  }
+}

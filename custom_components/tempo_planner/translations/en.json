@@ -1,0 +1,131 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Tempo Planner",
+        "data": {
+          "tomorrow_color_entity": "Tomorrow's Tempo colour",
+          "solar_tomorrow_entity": "Solar forecast for tomorrow",
+          "solar_peak_entity": "Solar peak time tomorrow",
+          "battery_soc_entity": "Home battery charge",
+          "car_soc_entity": "Car battery charge",
+          "car_plugged_entity": "Car plugged in",
+          "car_target_entity": "Car charge target"
+        },
+        "data_description": {
+          "tomorrow_color_entity": "The colour of the next Tempo day (for example the RTE Tempo integration's next colour).",
+          "solar_tomorrow_entity": "Energy expected tomorrow, in kWh.",
+          "solar_peak_entity": "Time of tomorrow's highest solar power.",
+          "battery_soc_entity": "State of charge of the home battery, in %.",
+          "car_soc_entity": "State of charge of the car, in %.",
+          "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
+          "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used."
+        },
+        "description": "Choose the entities the planner reads. Only tomorrow's colour is required."
+      }
+    },
+    "abort": {
+      "already_configured": "Tempo Planner is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Entities",
+        "data": {
+          "tomorrow_color_entity": "Tomorrow's Tempo colour",
+          "solar_tomorrow_entity": "Solar forecast for tomorrow",
+          "solar_peak_entity": "Solar peak time tomorrow",
+          "battery_soc_entity": "Home battery charge",
+          "car_soc_entity": "Car battery charge",
+          "car_plugged_entity": "Car plugged in",
+          "car_target_entity": "Car charge target"
+        },
+        "data_description": {
+          "tomorrow_color_entity": "The colour of the next Tempo day (for example the RTE Tempo integration's next colour).",
+          "solar_tomorrow_entity": "Energy expected tomorrow, in kWh.",
+          "solar_peak_entity": "Time of tomorrow's highest solar power.",
+          "battery_soc_entity": "State of charge of the home battery, in %.",
+          "car_soc_entity": "State of charge of the car, in %.",
+          "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
+          "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used."
+        }
+      },
+      "settings": {
+        "title": "House",
+        "data": {
+          "offpeak_start": "Off-peak start",
+          "offpeak_end": "Off-peak end",
+          "max_power_kw": "Power available for the planned loads",
+          "peak_load_kwh": "House consumption during peak hours",
+          "battery_capacity_kwh": "Home battery capacity",
+          "battery_reserve_pct": "Home battery reserve",
+          "battery_charge_kw": "Home battery grid charging power",
+          "battery_charge_on_blue": "Charge the home battery before a blue day",
+          "car_capacity_kwh": "Car battery capacity",
+          "car_charge_kw": "Charger power",
+          "car_target_pct": "Car charge target",
+          "dishwasher_minutes": "Dishwasher programme length",
+          "dishwasher_solar_kwh": "Solar forecast for a daytime dishwasher run"
+        },
+        "data_description": {
+          "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
+          "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar.",
+          "battery_charge_on_blue": "The gain on a blue day barely covers the battery's losses.",
+          "car_target_pct": "Used when no target entity is set.",
+          "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak."
+        },
+        "description": "What the planner needs to know about the house."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "tomorrow": {
+        "name": "Tomorrow",
+        "state": {
+          "blue": "Blue",
+          "white": "White",
+          "red": "Red",
+          "unknown": "Unknown"
+        }
+      },
+      "battery_target": {
+        "name": "Home battery target"
+      },
+      "battery_grid_energy": {
+        "name": "Home battery grid charge"
+      },
+      "battery_charge_end": {
+        "name": "Home battery charge end"
+      },
+      "car_energy": {
+        "name": "Car charge energy"
+      },
+      "car_charge_start": {
+        "name": "Car charge start"
+      },
+      "car_charge_end": {
+        "name": "Car charge end"
+      },
+      "dishwasher_start": {
+        "name": "Dishwasher start",
+        "state_attributes": {
+          "mode": {
+            "name": "Mode",
+            "state": {
+              "solar": "Solar",
+              "night": "Night"
+            }
+          }
+        }
+      },
+      "dishwasher_end": {
+        "name": "Dishwasher end"
+      },
+      "night_peak": {
+        "name": "Night peak power"
+      }
+    }
+  }
+}

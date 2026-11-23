@@ -1,0 +1,13 @@
+{
+  "domain": "tempo_planner",
+  "name": "Tempo Planner",
+  "codeowners": ["@Aarklendoia"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Aarklendoia/ha-tempo-planner",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/Aarklendoia/ha-tempo-planner/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
