@@ -58,6 +58,18 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         attributes=_plan_attributes,
     ),
     PlanSensorDescription(
+        key="peak_load",
+        translation_key="peak_load",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=1,
+        value=lambda p: p.peak_load_kwh,
+        attributes=lambda p, _: {
+            "source": "setting" if p.peak_load_days is None else "history",
+            "days": p.peak_load_days,
+        },
+    ),
+    PlanSensorDescription(
         key="battery_target",
         translation_key="battery_target",
         native_unit_of_measurement=PERCENTAGE,

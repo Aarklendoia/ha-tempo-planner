@@ -13,6 +13,8 @@ CONF_BATTERY_SOC = "battery_soc_entity"
 CONF_CAR_SOC = "car_soc_entity"
 CONF_CAR_PLUGGED = "car_plugged_entity"
 CONF_CAR_TARGET = "car_target_entity"
+# Read from the recorder's statistics once a day, not watched.
+CONF_HOUSE_ENERGY = "house_energy_entity"
 
 # One price entity per colour and period, keyed like planner.DEFAULT_PRICES.
 PRICE_KEYS = (
@@ -34,6 +36,7 @@ ENTITY_KEYS = (
     CONF_CAR_SOC,
     CONF_CAR_PLUGGED,
     CONF_CAR_TARGET,
+    CONF_HOUSE_ENERGY,
     *CONF_PRICES.values(),
 )
 
@@ -47,6 +50,7 @@ CONF_BATTERY_CHARGE_KW = "battery_charge_kw"
 # In euro cents per kWh in the options.
 CONF_BATTERY_MIN_GAIN = "battery_min_gain_ct"
 CONF_PEAK_LOAD = "peak_load_kwh"
+CONF_PEAK_LOAD_DAYS = "peak_load_days"
 CONF_CAR_CAPACITY = "car_capacity_kwh"
 CONF_CAR_CHARGE_KW = "car_charge_kw"
 CONF_CAR_TARGET_PCT = "car_target_pct"

@@ -12,6 +12,7 @@
           "car_soc_entity": "Charge de la voiture",
           "car_plugged_entity": "Voiture branchée",
           "car_target_entity": "Objectif de charge de la voiture",
+          "house_energy_entity": "Consommation de la maison",
           "price_blue_offpeak_entity": "Tarif bleu heures creuses",
           "price_blue_peak_entity": "Tarif bleu heures pleines",
           "price_white_offpeak_entity": "Tarif blanc heures creuses",
@@ -28,6 +29,7 @@
           "car_soc_entity": "Niveau de charge de la voiture, en %.",
           "car_plugged_entity": "Un capteur binaire, ou un état du branchement qui vaut « plugged » quand elle est branchée.",
           "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé.",
+          "house_energy_entity": "Un compteur d'énergie de ce que consomme la maison (kWh, avec statistiques à long terme), pas le soutirage réseau. Son historique remplace le réglage de consommation en heures pleines.",
           "price_red_peak_entity": "Tarifs en €/kWh. Sans entité, un tarif Tempo par défaut est utilisé (bleu 0,1356 / 0,1654, blanc 0,1536 / 0,1921, rouge 0,1611 / 0,73)."
         },
         "description": "Choisissez les entités que le planificateur lit. Seule la couleur de demain est obligatoire."
@@ -39,6 +41,7 @@
           "offpeak_end": "Fin des heures creuses",
           "max_power_kw": "Puissance disponible pour les charges planifiées",
           "peak_load_kwh": "Consommation de la maison en heures pleines",
+          "peak_load_days": "Jours d'historique",
           "battery_capacity_kwh": "Capacité de la batterie domestique",
           "battery_reserve_pct": "Réserve de la batterie domestique",
           "battery_charge_kw": "Puissance de charge de la batterie sur le réseau",
@@ -52,7 +55,8 @@
         },
         "data_description": {
           "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
-          "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire.",
+          "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire. Utilisée sans entité de consommation de la maison, ou tant que son historique est vide.",
+          "peak_load_days": "Nombre de jours passés dont la moyenne donne la consommation en heures pleines.",
           "battery_min_gain_ct": "Par kWh restitué par la batterie, après ses pertes. À régler sur ce que coûte un cycle en usure : prix de la batterie divisé par ses cycles garantis et sa capacité.",
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
           "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
@@ -78,6 +82,7 @@
           "car_soc_entity": "Charge de la voiture",
           "car_plugged_entity": "Voiture branchée",
           "car_target_entity": "Objectif de charge de la voiture",
+          "house_energy_entity": "Consommation de la maison",
           "price_blue_offpeak_entity": "Tarif bleu heures creuses",
           "price_blue_peak_entity": "Tarif bleu heures pleines",
           "price_white_offpeak_entity": "Tarif blanc heures creuses",
@@ -94,6 +99,7 @@
           "car_soc_entity": "Niveau de charge de la voiture, en %.",
           "car_plugged_entity": "Un capteur binaire, ou un état du branchement qui vaut « plugged » quand elle est branchée.",
           "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé.",
+          "house_energy_entity": "Un compteur d'énergie de ce que consomme la maison (kWh, avec statistiques à long terme), pas le soutirage réseau. Son historique remplace le réglage de consommation en heures pleines.",
           "price_red_peak_entity": "Tarifs en €/kWh. Sans entité, un tarif Tempo par défaut est utilisé (bleu 0,1356 / 0,1654, blanc 0,1536 / 0,1921, rouge 0,1611 / 0,73)."
         }
       },
@@ -104,6 +110,7 @@
           "offpeak_end": "Fin des heures creuses",
           "max_power_kw": "Puissance disponible pour les charges planifiées",
           "peak_load_kwh": "Consommation de la maison en heures pleines",
+          "peak_load_days": "Jours d'historique",
           "battery_capacity_kwh": "Capacité de la batterie domestique",
           "battery_reserve_pct": "Réserve de la batterie domestique",
           "battery_charge_kw": "Puissance de charge de la batterie sur le réseau",
@@ -117,7 +124,8 @@
         },
         "data_description": {
           "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
-          "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire.",
+          "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire. Utilisée sans entité de consommation de la maison, ou tant que son historique est vide.",
+          "peak_load_days": "Nombre de jours passés dont la moyenne donne la consommation en heures pleines.",
           "battery_min_gain_ct": "Par kWh restitué par la batterie, après ses pertes. À régler sur ce que coûte un cycle en usure : prix de la batterie divisé par ses cycles garantis et sa capacité.",
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
           "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
@@ -129,6 +137,21 @@
   },
   "entity": {
     "sensor": {
+      "peak_load": {
+        "name": "Consommation en heures pleines",
+        "state_attributes": {
+          "source": {
+            "name": "Source",
+            "state": {
+              "history": "Historique",
+              "setting": "Réglage"
+            }
+          },
+          "days": {
+            "name": "Jours d'historique"
+          }
+        }
+      },
       "tomorrow": {
         "name": "Demain",
         "state": {

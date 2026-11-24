@@ -10,8 +10,9 @@ Tempo day that follows it ("tomorrow").
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 
 
@@ -94,8 +95,11 @@ class Settings:
     # A grid charge must save at least this much per kWh given back by the
     # battery, after its losses: what a cycle costs in wear.
     battery_min_gain_eur_kwh: float = 0.03
-    # House consumption between 06:00 and 22:00, before solar.
+    # House consumption between 06:00 and 22:00, before solar, when no
+    # history is available.
     peak_load_kwh: float = 11.5
+    # Days of history averaged to learn the peak-hour consumption.
+    peak_load_days: int = 14
 
     car_capacity_kwh: float = 60.0
     car_charge_kw: float = 7.4
@@ -113,6 +117,36 @@ class Settings:
 
 
 @dataclass(frozen=True)
+class PeakLoad:
+    """Peak-hour consumption learnt from history."""
+
+    kwh: float
+    days: int
+
+
+def peak_load_from_history(
+    hours: list[tuple[datetime, float]], settings: Settings
+) -> PeakLoad | None:
+    """Average peak-hour consumption of the days whose every peak hour is known.
+
+    `hours` holds the start of each hour, in local time, and the energy the house
+    used during it.
+    """
+    per_day: dict[date, list[float]] = defaultdict(list)
+    for start, kwh in hours:
+        if settings.offpeak_end <= start.time() < settings.offpeak_start:
+            per_day[start.date()].append(kwh)
+    peak_hours = (
+        datetime.combine(date.min, settings.offpeak_start)
+        - datetime.combine(date.min, settings.offpeak_end)
+    ) // timedelta(hours=1)
+    totals = [sum(day) for day in per_day.values() if len(day) == peak_hours]
+    if not totals:
+        return None
+    return PeakLoad(kwh=round(sum(totals) / len(totals), 2), days=len(totals))
+
+
+@dataclass(frozen=True)
 class Inputs:
     """The state of the house when the plan is made."""
 
@@ -122,6 +156,8 @@ class Inputs:
     today: Color = Color.UNKNOWN
     # Prices read from entities, keyed like DEFAULT_PRICES; missing ones use the defaults.
     prices: dict[str, float] = field(default_factory=dict)
+    # Learnt from history; the setting applies without it.
+    peak_load: PeakLoad | None = None
     solar_tomorrow_kwh: float | None = None
     solar_peak_tomorrow: datetime | None = None
     battery_soc: float | None = None
@@ -150,6 +186,10 @@ class Plan:
     night_start: datetime
     night_end: datetime
     tomorrow: Color
+    # House consumption expected during tomorrow's peak hours, and the number
+    # of days of history behind it (None: the setting).
+    peak_load_kwh: float = 0.0
+    peak_load_days: int | None = None
     battery_target_pct: float | None = None
     battery_grid_kwh: float = 0.0
     battery: Slot | None = None
@@ -203,7 +243,12 @@ def _price(inputs: Inputs, color: Color, offpeak: bool) -> float:
 def _plan_battery(plan: Plan, inputs: Inputs, settings: Settings) -> None:
     capacity = settings.battery_capacity_kwh
     solar = inputs.solar_tomorrow_kwh or 0.0
-    need_kwh = max(0.0, settings.peak_load_kwh - solar)
+    if inputs.peak_load is not None:
+        plan.peak_load_kwh = inputs.peak_load.kwh
+        plan.peak_load_days = inputs.peak_load.days
+    else:
+        plan.peak_load_kwh = settings.peak_load_kwh
+    need_kwh = max(0.0, plan.peak_load_kwh - solar)
 
     # The night is billed at today's off-peak price and replaces tomorrow's peak hours.
     plan.offpeak_price = _price(inputs, inputs.today, offpeak=True)

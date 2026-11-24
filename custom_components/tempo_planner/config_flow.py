@@ -22,6 +22,9 @@ _SENSOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")
 _NUMBER = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["sensor", "number", "input_number"])
 )
+_ENERGY = selector.EntitySelector(
+    selector.EntitySelectorConfig(domain="sensor", device_class="energy")
+)
 _PLUG = selector.EntitySelector(selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"]))
 
 _ENTITY_SELECTORS = {
@@ -33,6 +36,7 @@ _ENTITY_SELECTORS = {
     const.CONF_CAR_SOC: _SENSOR,
     const.CONF_CAR_PLUGGED: _PLUG,
     const.CONF_CAR_TARGET: _NUMBER,
+    const.CONF_HOUSE_ENERGY: _ENERGY,
     **{conf: _NUMBER for conf in const.CONF_PRICES.values()},
 }
 
@@ -66,6 +70,7 @@ def _settings_schema(values: dict[str, Any]) -> vol.Schema:
         const.CONF_OFFPEAK_END: (d.offpeak_end.isoformat(), selector.TimeSelector()),
         const.CONF_MAX_POWER: (d.max_power_kw, _num(1, 36, 0.1, "kW")),
         const.CONF_PEAK_LOAD: (d.peak_load_kwh, _num(0, 100, 0.5, "kWh")),
+        const.CONF_PEAK_LOAD_DAYS: (d.peak_load_days, _num(1, 60, 1, "d")),
         const.CONF_BATTERY_CAPACITY: (d.battery_capacity_kwh, _num(0, 100, 0.1, "kWh")),
         const.CONF_BATTERY_RESERVE: (d.battery_reserve_pct, _num(0, 100, 1, "%")),
         const.CONF_BATTERY_CHARGE_KW: (d.battery_charge_kw, _num(0.1, 22, 0.1, "kW")),

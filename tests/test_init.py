@@ -1,7 +1,6 @@
 """Setup, sensors and options, inside Home Assistant."""
 
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import timedelta
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
@@ -11,8 +10,6 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.tempo_planner import const
-
-PARIS = ZoneInfo("Europe/Paris")
 
 ENTITIES = {
     const.CONF_TOMORROW_COLOR: "sensor.rte_tempo_prochaine_couleur",
@@ -31,6 +28,7 @@ SETTINGS = {
     const.CONF_OFFPEAK_END: "06:00:00",
     const.CONF_MAX_POWER: 9,
     const.CONF_PEAK_LOAD: 8,
+    const.CONF_PEAK_LOAD_DAYS: 14,
     const.CONF_BATTERY_CAPACITY: 10,
     const.CONF_BATTERY_RESERVE: 5,
     const.CONF_BATTERY_CHARGE_KW: 3,
@@ -42,19 +40,6 @@ SETTINGS = {
     const.CONF_DISHWASHER_MINUTES: 310,
     const.CONF_DISHWASHER_SOLAR: 6,
 }
-
-
-@pytest.fixture
-async def house(hass: HomeAssistant, freezer: FrozenDateTimeFactory):
-    await hass.config.async_set_time_zone("Europe/Paris")
-    freezer.move_to(datetime(2026, 11, 23, 16, 0, tzinfo=PARIS))
-    hass.states.async_set("sensor.rte_tempo_prochaine_couleur", "Blanc")
-    hass.states.async_set("sensor.rte_tempo_couleur_actuelle", "Bleu")
-    hass.states.async_set("sensor.energy_production_tomorrow", "3")
-    hass.states.async_set("sensor.battery_soc", "20")
-    hass.states.async_set("sensor.car_battery", "50")
-    hass.states.async_set("sensor.car_plug", "plugged")
-    hass.states.async_set("number.car_target", "80")
 
 
 async def test_config_flow(hass: HomeAssistant, house) -> None:
