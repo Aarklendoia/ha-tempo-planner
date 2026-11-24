@@ -37,6 +37,14 @@ and the solar forecast:
   recommends: an automation can copy the target into the car or notify you. The
   usual target is the planner's setting, not the car's, so that copying does not
   feed back.
+- **Solar charge of the car** — from the hourly solar forecast (the energy
+  platform of Forecast.Solar, Solcast…), the house's hourly consumption and the
+  home battery, which takes the surplus first, the planner finds tomorrow's
+  hours when the energy *sold* covers enough of the car's power to beat
+  charging it the next night: `(1 − s) × peak + s × resale < off-peak`. The rest
+  comes from the grid or the battery, both priced at the peak price; the hybrid
+  inverter caps solar and battery together. About a quarter of the car's power
+  on blue and white days, out of reach on red days.
 - **Dishwasher** — on a blue day with enough sun forecast, run it around the
   solar peak; otherwise start it at night, after the battery.
 
@@ -63,6 +71,7 @@ power you allow.
 | Dishwasher start / end | the dishwasher's slot (`mode`: `night` or `solar`) |
 | Recommended car target | what the car should be charged to tonight, %; attributes: `advice`, its `explanation`, the next `trip` and the car's `daily_energy` |
 | Plug in the car tonight (binary) | on when tonight's recommendation is worth a charge (at least the car's minimum charge) |
+| Solar car charge tomorrow | energy the car can take from tomorrow's surplus, kWh; attributes: window `start` and `end`, energy `sold_energy` without the car, `min_share` of the car's power the surplus must cover, % |
 | Last day's peak-hour consumption | measured on the last Tempo day over, kWh; attributes: `day`, `color`, the `forecast` frozen when its night started, the `error` (forecast − measured), the `mean_abs_error` over the last 14 days reviewed |
 | Last night's battery | the plan against the battery during the night before that day: `agreed_charge`, `agreed_idle`, `planner_only` or `battery_only` (a rise of 5 points or more counts as a charge); attributes: the levels at the start, highest and end, and the `agreement` rate over the last 14 nights |
 | Last night's car charge | grid energy the car took during the night before the last day reviewed, kWh (from its level and capacity); attributes: actual `start` and `end` (from the car charging entity), levels, planned start, end and energy, and the `start_offset` in minutes |
@@ -152,6 +161,11 @@ vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
   ce soir est bleu et pas demain. Un capteur « Brancher la voiture ce soir »
   l'accompagne. Le planificateur conseille seulement : une automatisation peut
   recopier l'objectif dans la voiture ou vous prévenir.
+- **Recharge solaire de la voiture** : d'après la prévision solaire heure par
+  heure, la consommation horaire de la maison et la batterie (servie en
+  premier), le planificateur repère les heures de demain où le surplus *vendu*
+  couvre assez de la puissance de la voiture pour battre la charge de la nuit
+  suivante. L'onduleur hybride plafonne solaire et batterie ensemble.
 - **Lave-vaisselle** : un jour bleu bien ensoleillé, autour du pic solaire ;
   sinon la nuit, après la batterie.
 

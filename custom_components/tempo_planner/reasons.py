@@ -31,6 +31,10 @@ _TEXTS: dict[str, dict[Reason, str]] = {
         Reason.CAR_ADVICE_TRIP_EARLY: (
             "Trip the day after tomorrow and tomorrow night is dearer: fill the car tonight."
         ),
+        Reason.SOLAR_CAR: (
+            "Tomorrow's solar surplus beats tomorrow night: leave the car plugged in"
+            " during the day."
+        ),
         Reason.DISHWASHER_SOLAR: "Sunny blue day: the dishwasher runs around the solar peak.",
         Reason.DISHWASHER_NIGHT: "The dishwasher runs at night, after the battery.",
         Reason.PEAK_OVER_LIMIT: "The planned loads exceed the available power.",
@@ -60,6 +64,10 @@ _TEXTS: dict[str, dict[Reason, str]] = {
         Reason.CAR_ADVICE_TRIP: "Voyage demain : charger la voiture à 100 %.",
         Reason.CAR_ADVICE_TRIP_EARLY: (
             "Voyage après-demain et la nuit de demain est plus chère : remplir dès ce soir."
+        ),
+        Reason.SOLAR_CAR: (
+            "Le surplus solaire de demain bat la nuit suivante : laisser la voiture"
+            " branchée en journée."
         ),
         Reason.DISHWASHER_SOLAR: "Jour bleu ensoleillé : lave-vaisselle autour du pic solaire.",
         Reason.DISHWASHER_NIGHT: "Lave-vaisselle la nuit, après la batterie.",

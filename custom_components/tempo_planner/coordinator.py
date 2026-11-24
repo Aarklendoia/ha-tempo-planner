@@ -38,6 +38,7 @@ from .review import (
     soc_during,
     summarize,
 )
+from .solar import hourly_profile
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +90,8 @@ def settings_from(config: dict) -> Settings:
         car_charge_kw=num(const.CONF_CAR_CHARGE_KW, default.car_charge_kw),
         car_target_pct=num(const.CONF_CAR_TARGET_PCT, default.car_target_pct),
         car_min_kwh=num(const.CONF_CAR_MIN, default.car_min_kwh),
+        inverter_kw=num(const.CONF_INVERTER_KW, default.inverter_kw),
+        resale_eur_kwh=num(const.CONF_RESALE, default.resale_eur_kwh * 100) / 100,
         car_reserve_pct=num(const.CONF_CAR_RESERVE, default.car_reserve_pct),
         car_daily_kwh=num(const.CONF_CAR_DAILY, default.car_daily_kwh),
         car_starts_at_offpeak=bool(
@@ -438,6 +441,30 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
                 departures.append(day)
         return min(departures, default=None)
 
+    async def _async_solar_hours(self) -> dict[datetime, float]:
+        """Hourly solar forecast, from the energy platform of the forecast's integration."""
+        entity_id = self._config.get(const.CONF_SOLAR_TOMORROW)
+        if not entity_id:
+            return {}
+        from homeassistant.helpers import entity_registry as er
+        from homeassistant.loader import async_get_integration
+
+        entry = er.async_get(self.hass).async_get(entity_id)
+        if entry is None or entry.config_entry_id is None:
+            return {}
+        try:
+            integration = await async_get_integration(self.hass, entry.platform)
+            platform = await integration.async_get_platform("energy")
+            forecast = await platform.async_get_solar_forecast(self.hass, entry.config_entry_id)
+        except Exception:  # noqa: BLE001 - no hourly forecast, no solar window
+            _LOGGER.debug("No hourly solar forecast from %s", entry.platform, exc_info=True)
+            return {}
+        hours: dict[datetime, float] = {}
+        for start, wh in ((forecast or {}).get("wh_hours") or {}).items():
+            if (when := dt_util.parse_datetime(start)) is not None:
+                hours[dt_util.as_local(when)] = wh / 1000
+        return hours
+
     def read_inputs(self) -> Inputs:
         return Inputs(
             now=dt_util.now(),
@@ -466,6 +493,8 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
                 list(self._reviews.values()), self._settings.car_capacity_kwh
             ),
             trip_departure=await self._async_trip(),
+            solar_hours=await self._async_solar_hours(),
+            load_profile=hourly_profile(self._hours, self._settings.peak_load_days),
         )
         self._remember_today(inputs)
         peak_load: PeakLoad | None = None

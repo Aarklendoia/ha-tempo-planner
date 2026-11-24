@@ -49,6 +49,8 @@
           "battery_capacity_kwh": "Home battery capacity",
           "battery_reserve_pct": "Home battery reserve",
           "battery_charge_kw": "Home battery grid charging power",
+          "inverter_kw": "Inverter rated power",
+          "resale_ct": "Resale price",
           "battery_min_gain_ct": "Minimum saving to charge the battery from the grid",
           "car_capacity_kwh": "Car battery capacity",
           "car_charge_kw": "Charger power",
@@ -72,7 +74,9 @@
           "car_reserve_pct": "Level always kept on white and red nights, for the unexpected.",
           "car_daily_kwh": "Used until the daily reviews have learnt it from the car's level.",
           "trip_keyword": "Calendar events whose title contains it are trips.",
-          "car_starts_at_offpeak": "On for a car that follows its own charge program (it starts at the start of the off-peak hours). Off for a charger the planner drives: the charge then ends just before the end of the off-peak hours."
+          "car_starts_at_offpeak": "On for a car that follows its own charge program (it starts at the start of the off-peak hours). Off for a charger the planner drives: the charge then ends just before the end of the off-peak hours.",
+          "inverter_kw": "Solar and battery reach the house through the hybrid inverter: together, they never deliver more.",
+          "resale_ct": "What the grid pays for the energy sold."
         },
         "description": "What the planner needs to know about the house. Every value can be changed later in the integration's options."
       }
@@ -130,6 +134,8 @@
           "battery_capacity_kwh": "Home battery capacity",
           "battery_reserve_pct": "Home battery reserve",
           "battery_charge_kw": "Home battery grid charging power",
+          "inverter_kw": "Inverter rated power",
+          "resale_ct": "Resale price",
           "battery_min_gain_ct": "Minimum saving to charge the battery from the grid",
           "car_capacity_kwh": "Car battery capacity",
           "car_charge_kw": "Charger power",
@@ -153,7 +159,9 @@
           "car_reserve_pct": "Level always kept on white and red nights, for the unexpected.",
           "car_daily_kwh": "Used until the daily reviews have learnt it from the car's level.",
           "trip_keyword": "Calendar events whose title contains it are trips.",
-          "car_starts_at_offpeak": "On for a car that follows its own charge program (it starts at the start of the off-peak hours). Off for a charger the planner drives: the charge then ends just before the end of the off-peak hours."
+          "car_starts_at_offpeak": "On for a car that follows its own charge program (it starts at the start of the off-peak hours). Off for a charger the planner drives: the charge then ends just before the end of the off-peak hours.",
+          "inverter_kw": "Solar and battery reach the house through the hybrid inverter: together, they never deliver more.",
+          "resale_ct": "What the grid pays for the energy sold."
         },
         "description": "What the planner needs to know about the house."
       }
@@ -257,6 +265,23 @@
           },
           "daily_energy": {
             "name": "Energy a day"
+          }
+        }
+      },
+      "solar_car": {
+        "name": "Solar car charge tomorrow",
+        "state_attributes": {
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "sold_energy": {
+            "name": "Energy sold without the car"
+          },
+          "min_share": {
+            "name": "Minimum surplus share"
           }
         }
       },

@@ -17,6 +17,8 @@ from enum import StrEnum
 import math
 from typing import TYPE_CHECKING
 
+from .solar import House, SolarWindow, solar_window
+
 if TYPE_CHECKING:
     from .review import DayReview, Summary
 
@@ -84,6 +86,7 @@ class Reason(StrEnum):
     CAR_ADVICE_BRIDGE = "car_advice_bridge"
     CAR_ADVICE_TRIP = "car_advice_trip"
     CAR_ADVICE_TRIP_EARLY = "car_advice_trip_early"
+    SOLAR_CAR = "solar_car"
     DISHWASHER_SOLAR = "dishwasher_solar"
     DISHWASHER_NIGHT = "dishwasher_night"
     PEAK_OVER_LIMIT = "peak_over_limit"
@@ -102,6 +105,10 @@ class Settings:
     battery_reserve_pct: float = 5.0
     battery_charge_kw: float = 3.0
     battery_efficiency: float = 0.9
+    # Hybrid inverter rating: solar and battery reach the house through it.
+    inverter_kw: float = 6.0
+    # Price paid for the energy sold to the grid, EUR/kWh.
+    resale_eur_kwh: float = 0.04
     # A grid charge must save at least this much per kWh given back by the
     # battery, after its losses: what a cycle costs in wear.
     battery_min_gain_eur_kwh: float = 0.03
@@ -220,6 +227,10 @@ class Inputs:
     car_daily_kwh: float | None = None
     # Day of the next long trip, from the calendar.
     trip_departure: date | None = None
+    # Solar forecast of each hour (by its start), kWh, and the house's usual
+    # consumption for each hour of the day.
+    solar_hours: dict[datetime, float] = field(default_factory=dict)
+    load_profile: dict[int, float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -262,6 +273,8 @@ class Plan:
     car_plug_tonight: bool | None = None
     car_daily_kwh: float | None = None
     trip_departure: date | None = None
+    # Tomorrow's hours worth a car charge from the solar surplus.
+    solar: SolarWindow | None = None
     dishwasher: Slot | None = None
     dishwasher_mode: str | None = None
     peak_kw: float = 0.0
@@ -292,6 +305,7 @@ def make_plan(inputs: Inputs, settings: Settings) -> Plan:
     _plan_battery(plan, inputs, settings)
     _plan_car(plan, inputs, settings)
     _advise_car(plan, inputs, settings)
+    _plan_solar(plan, inputs, settings)
     _plan_dishwasher(plan, inputs, settings)
     plan.peak_kw = night_peak(
         [s for s in (plan.battery, plan.car, plan.dishwasher) if s is not None],
@@ -423,6 +437,49 @@ def _advise_car(plan: Plan, inputs: Inputs, settings: Settings) -> None:
     plan.car_advised_target_pct = round(target)
     missing_kwh = (target - inputs.car_soc) / 100 * settings.car_capacity_kwh
     plan.car_plug_tonight = missing_kwh / settings.car_efficiency >= settings.car_min_kwh
+
+
+def _plan_solar(plan: Plan, inputs: Inputs, settings: Settings) -> None:
+    """Tomorrow's window to charge the car from the solar surplus."""
+    tomorrow = plan.night_end.date()
+    solar = {
+        start: kwh
+        for start, kwh in inputs.solar_hours.items()
+        if start.date() == tomorrow
+        and settings.offpeak_end <= start.time() < settings.offpeak_start
+    }
+    if not solar:
+        return
+    peak_hours = len(range(settings.offpeak_end.hour, settings.offpeak_start.hour)) or 1
+    load = inputs.load_profile or {
+        hour: plan.peak_load_kwh / peak_hours
+        for hour in range(settings.offpeak_end.hour, settings.offpeak_start.hour)
+    }
+    battery = plan.battery_target_pct if plan.battery else inputs.battery_soc
+    daily = plan.car_daily_kwh if plan.car_daily_kwh is not None else settings.car_daily_kwh
+    car_room = daily
+    if inputs.car_soc is not None:
+        morning = max(inputs.car_soc, plan.car_advised_target_pct or 0)
+        car_room += max(0.0, settings.car_target_pct - morning) / 100 * settings.car_capacity_kwh
+    plan.solar = solar_window(
+        solar,
+        load,
+        battery if battery is not None else settings.battery_reserve_pct,
+        car_room,
+        # The alternative is tomorrow night, at tomorrow's off-peak price.
+        peak=_price(inputs, plan.tomorrow, offpeak=False),
+        offpeak=_price(inputs, plan.tomorrow, offpeak=True),
+        resale=settings.resale_eur_kwh,
+        house=House(
+            inverter_kw=settings.inverter_kw,
+            battery_capacity_kwh=settings.battery_capacity_kwh,
+            battery_reserve_pct=settings.battery_reserve_pct,
+            battery_charge_kw=settings.battery_charge_kw,
+            car_charge_kw=settings.car_charge_kw,
+        ),
+    )
+    if plan.solar.car_kwh >= settings.car_min_kwh:
+        plan.reasons.append(Reason.SOLAR_CAR)
 
 
 def _plan_dishwasher(plan: Plan, inputs: Inputs, settings: Settings) -> None:
