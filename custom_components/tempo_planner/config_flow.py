@@ -40,6 +40,7 @@ _ENTITY_SELECTORS = {
     const.CONF_TRIP_CALENDAR: _CALENDAR,
     const.CONF_CAR_TARGET: _NUMBER,
     const.CONF_HOUSE_ENERGY: _ENERGY,
+    const.CONF_CAR_ENERGY: _ENERGY,
     **{conf: _NUMBER for conf in const.CONF_PRICES.values()},
 }
 

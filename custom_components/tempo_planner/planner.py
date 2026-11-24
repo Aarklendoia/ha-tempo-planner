@@ -159,6 +159,17 @@ def tempo_day(now: datetime, settings: Settings) -> date:
     return now.date()
 
 
+def subtract_hours(
+    hours: list[tuple[datetime, float]], other: list[tuple[datetime, float]]
+) -> list[tuple[datetime, float]]:
+    """`hours` less `other`, hour by hour, never below zero.
+
+    An hour missing from `other` counts as zero.
+    """
+    by_start = dict(other)
+    return [(start, max(0.0, kwh - by_start.get(start, 0.0))) for start, kwh in hours]
+
+
 def peak_totals(hours: list[tuple[datetime, float]], settings: Settings) -> dict[date, float]:
     """Peak-hour consumption of each day whose every peak hour is known.
 
