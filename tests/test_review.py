@@ -140,3 +140,23 @@ def test_car_review_against_the_plan():
     assert review.car_planned_kwh == 4.5
     assert DayReview.from_dict(review.day, review.to_dict()) == review
     assert Forecast.from_dict(forecast.day, forecast.to_dict()) == forecast
+
+
+def test_car_daily_use():
+    from custom_components.tempo_planner.review import car_daily_use
+
+    def day(d, start, end):
+        return DayReview(day=date(2026, 11, d), car=CarNight(soc_start=start, soc_end=end))
+
+    # Mornings and the next evenings: 80 → 76, 80 → 77, 77 → 74 (no charge on 22),
+    # and a day with a charge during the day (evening above morning) skipped.
+    reviews = [
+        day(20, 70, 80),
+        day(21, 76, 80),
+        day(22, 77, 77),
+        day(23, 74, 74),
+        day(24, 90, 80),
+    ]
+    use = car_daily_use(reviews, 100)
+    assert use == round((4 + 3 + 3) / 3, 2)
+    assert car_daily_use(reviews[:3], 100) is None

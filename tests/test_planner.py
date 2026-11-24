@@ -1,6 +1,6 @@
 """Tests of the planner alone (no Home Assistant needed)."""
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -349,3 +349,85 @@ def test_unplugged_car_is_not_planned():
     assert plan.car is None
     assert plan.car_energy_kwh == 0
     assert Reason.CAR_NOT_PLUGGED in plan.reasons
+
+
+CAR = Settings(
+    car_capacity_kwh=87, car_target_pct=80, car_reserve_pct=20, car_daily_kwh=8, car_min_kwh=2
+)
+
+
+def advise(now, today, tomorrow, soc, **kw):
+    return make_plan(
+        Inputs(now=now, today=today, tomorrow=tomorrow, car_soc=soc, car_target_pct=80, **kw),
+        CAR,
+    )
+
+
+def test_car_advice_on_a_blue_night():
+    # Monday 23: blue tonight.
+    plan = advise(at(23, 16), Color.BLUE, Color.WHITE, 70)
+    assert plan.car_advice is Reason.CAR_ADVICE_BLUE_NIGHT
+    assert plan.car_advised_target_pct == 80
+    assert plan.car_plug_tonight is True
+    assert Reason.CAR_ADVICE_BLUE_NIGHT in plan.reasons
+
+
+def test_car_advice_on_a_white_night_before_a_blue_day():
+    # One day to drive: 20 % reserve + 8 kWh of 87 = 30 %; the car has 60 %.
+    plan = advise(at(23, 16), Color.WHITE, Color.BLUE, 60)
+    assert plan.car_advice is Reason.CAR_ADVICE_COVERED
+    assert plan.car_advised_target_pct == 30
+    assert plan.car_plug_tonight is False
+
+
+def test_car_advice_bridges_to_sunday_for_a_heavy_driver():
+    # Tomorrow Tuesday is white: next sure blue night is Sunday's, six days of
+    # driving: 20 % + 48 kWh of 87 = 76 %.
+    plan = advise(at(23, 16), Color.WHITE, Color.WHITE, 60)
+    assert plan.car_advice is Reason.CAR_ADVICE_BRIDGE
+    assert plan.car_advised_target_pct == 76
+    assert plan.car_plug_tonight is True
+
+
+def test_car_advice_for_a_light_driver():
+    # Learnt from the reviews: 3 kWh a day, 20 % + 18 kWh of 87 = 41 %.
+    plan = advise(at(23, 16), Color.WHITE, Color.WHITE, 60, car_daily_kwh=3)
+    assert plan.car_advice is Reason.CAR_ADVICE_COVERED
+    assert plan.car_advised_target_pct == 41
+    assert plan.car_daily_kwh == 3
+
+
+def test_car_advice_on_saturday_night():
+    # Saturday 21, white: Sunday is always blue, one day to drive.
+    plan = advise(at(21, 16), Color.WHITE, Color.UNKNOWN, 25)
+    assert plan.car_advised_target_pct == 30
+    assert plan.car_advice is Reason.CAR_ADVICE_BRIDGE
+    # 5 % of 87 kWh at 90 %: 4.8 kWh, worth plugging in.
+    assert plan.car_plug_tonight is True
+
+
+def test_car_advice_trip_tomorrow():
+    plan = advise(at(23, 16), Color.RED, Color.RED, 70, trip_departure=date(2026, 11, 24))
+    assert plan.car_advice is Reason.CAR_ADVICE_TRIP
+    assert plan.car_advised_target_pct == 100
+    assert plan.trip_departure == date(2026, 11, 24)
+
+
+def test_car_advice_fills_early_before_a_trip():
+    trip = date(2026, 11, 25)
+    # Blue tonight, white tomorrow night: fill tonight.
+    early = advise(at(23, 16), Color.BLUE, Color.WHITE, 70, trip_departure=trip)
+    assert early.car_advice is Reason.CAR_ADVICE_TRIP_EARLY
+    assert early.car_advised_target_pct == 100
+    # Blue tomorrow night as well: the usual target tonight, 100 % tomorrow.
+    later = advise(at(23, 16), Color.BLUE, Color.BLUE, 70, trip_departure=trip)
+    assert later.car_advice is Reason.CAR_ADVICE_BLUE_NIGHT
+    # White tonight: nothing to gain tonight.
+    white = advise(at(23, 16), Color.WHITE, Color.WHITE, 70, trip_departure=trip)
+    assert white.car_advice is not Reason.CAR_ADVICE_TRIP_EARLY
+
+
+def test_no_car_advice_without_its_level():
+    plan = make_plan(Inputs(now=at(23, 16), today=Color.BLUE, tomorrow=Color.WHITE), CAR)
+    assert plan.car_advice is None
+    assert plan.car_plug_tonight is None

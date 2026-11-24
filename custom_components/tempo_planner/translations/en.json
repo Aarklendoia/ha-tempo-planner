@@ -12,6 +12,7 @@
           "car_soc_entity": "Car battery charge",
           "car_plugged_entity": "Car plugged in",
           "car_charging_entity": "Car charging",
+          "trip_calendar_entity": "Trip calendar",
           "car_target_entity": "Car charge target",
           "house_energy_entity": "House consumption",
           "price_blue_offpeak_entity": "Price, blue off-peak",
@@ -30,6 +31,7 @@
           "car_soc_entity": "State of charge of the car, in %.",
           "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
           "car_charging_entity": "A binary sensor that is on while the car charges. With the car's level, it shows in the daily review when the car actually charged.",
+          "trip_calendar_entity": "Events whose title contains the trip keyword mark a long trip: the car is filled the night before.",
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
           "house_energy_entity": "An energy meter of what the house uses (kWh, with long-term statistics), not the grid import. Its history replaces the peak-hour consumption setting.",
           "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
@@ -54,6 +56,9 @@
           "dishwasher_minutes": "Dishwasher programme length",
           "dishwasher_solar_kwh": "Solar forecast for a daytime dishwasher run",
           "car_min_kwh": "Minimum car charge",
+          "car_reserve_pct": "Car reserve",
+          "car_daily_kwh": "Car energy a day",
+          "trip_keyword": "Trip keyword",
           "car_starts_at_offpeak": "The car starts charging when the off-peak hours open"
         },
         "data_description": {
@@ -64,6 +69,9 @@
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
           "car_min_kwh": "Below this, no charge is planned.",
+          "car_reserve_pct": "Level always kept on white and red nights, for the unexpected.",
+          "car_daily_kwh": "Used until the daily reviews have learnt it from the car's level.",
+          "trip_keyword": "Calendar events whose title contains it are trips.",
           "car_starts_at_offpeak": "On for a car that follows its own charge program (it starts at the start of the off-peak hours). Off for a charger the planner drives: the charge then ends just before the end of the off-peak hours."
         },
         "description": "What the planner needs to know about the house. Every value can be changed later in the integration's options."
@@ -86,6 +94,7 @@
           "car_soc_entity": "Car battery charge",
           "car_plugged_entity": "Car plugged in",
           "car_charging_entity": "Car charging",
+          "trip_calendar_entity": "Trip calendar",
           "car_target_entity": "Car charge target",
           "house_energy_entity": "House consumption",
           "price_blue_offpeak_entity": "Price, blue off-peak",
@@ -104,6 +113,7 @@
           "car_soc_entity": "State of charge of the car, in %.",
           "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
           "car_charging_entity": "A binary sensor that is on while the car charges. With the car's level, it shows in the daily review when the car actually charged.",
+          "trip_calendar_entity": "Events whose title contains the trip keyword mark a long trip: the car is filled the night before.",
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
           "house_energy_entity": "An energy meter of what the house uses (kWh, with long-term statistics), not the grid import. Its history replaces the peak-hour consumption setting.",
           "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
@@ -127,6 +137,9 @@
           "dishwasher_minutes": "Dishwasher programme length",
           "dishwasher_solar_kwh": "Solar forecast for a daytime dishwasher run",
           "car_min_kwh": "Minimum car charge",
+          "car_reserve_pct": "Car reserve",
+          "car_daily_kwh": "Car energy a day",
+          "trip_keyword": "Trip keyword",
           "car_starts_at_offpeak": "The car starts charging when the off-peak hours open"
         },
         "data_description": {
@@ -137,6 +150,9 @@
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
           "car_min_kwh": "Below this, no charge is planned.",
+          "car_reserve_pct": "Level always kept on white and red nights, for the unexpected.",
+          "car_daily_kwh": "Used until the daily reviews have learnt it from the car's level.",
+          "trip_keyword": "Calendar events whose title contains it are trips.",
           "car_starts_at_offpeak": "On for a car that follows its own charge program (it starts at the start of the off-peak hours). Off for a charger the planner drives: the charge then ends just before the end of the off-peak hours."
         },
         "description": "What the planner needs to know about the house."
@@ -144,6 +160,11 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "plug_car_tonight": {
+        "name": "Plug in the car tonight"
+      }
+    },
     "sensor": {
       "peak_load": {
         "name": "Peak-hour consumption",
@@ -221,6 +242,23 @@
       },
       "dishwasher_end": {
         "name": "Dishwasher end"
+      },
+      "car_advised_target": {
+        "name": "Recommended car target",
+        "state_attributes": {
+          "advice": {
+            "name": "Advice"
+          },
+          "explanation": {
+            "name": "Explanation"
+          },
+          "trip": {
+            "name": "Trip"
+          },
+          "daily_energy": {
+            "name": "Energy a day"
+          }
+        }
       },
       "last_day_peak_load": {
         "name": "Last day's peak-hour consumption",

@@ -14,6 +14,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from enum import StrEnum
+import math
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -78,6 +79,11 @@ class Reason(StrEnum):
     CAR_UNKNOWN_SOC = "car_unknown_soc"
     CAR_NOT_PLUGGED = "car_not_plugged"
     CAR_OVERFLOWS_OFFPEAK = "car_overflows_offpeak"
+    CAR_ADVICE_BLUE_NIGHT = "car_advice_blue_night"
+    CAR_ADVICE_COVERED = "car_advice_covered"
+    CAR_ADVICE_BRIDGE = "car_advice_bridge"
+    CAR_ADVICE_TRIP = "car_advice_trip"
+    CAR_ADVICE_TRIP_EARLY = "car_advice_trip_early"
     DISHWASHER_SOLAR = "dishwasher_solar"
     DISHWASHER_NIGHT = "dishwasher_night"
     PEAK_OVER_LIMIT = "peak_over_limit"
@@ -113,6 +119,10 @@ class Settings:
     car_efficiency: float = 0.9
     # Below this, the car is not worth a charging session.
     car_min_kwh: float = 3.0
+    # Level always kept for the unexpected, %.
+    car_reserve_pct: float = 20.0
+    # Energy the car uses a day, when its history does not tell yet.
+    car_daily_kwh: float = 8.0
     car_margin: timedelta = timedelta(minutes=15)
     # The car's own program starts charging as soon as the off-peak hours open;
     # a charger driven by the planner can instead finish just before their end.
@@ -206,6 +216,10 @@ class Inputs:
     car_soc: float | None = None
     car_plugged: bool | None = None
     car_target_pct: float | None = None
+    # Learnt from the reviews; the setting applies without it.
+    car_daily_kwh: float | None = None
+    # Day of the next long trip, from the calendar.
+    trip_departure: date | None = None
 
 
 @dataclass(frozen=True)
@@ -242,6 +256,12 @@ class Plan:
     peak_price: float | None = None
     car_energy_kwh: float = 0.0
     car: Slot | None = None
+    # What the car should be charged to tonight, and whether to plug it in.
+    car_advice: Reason | None = None
+    car_advised_target_pct: float | None = None
+    car_plug_tonight: bool | None = None
+    car_daily_kwh: float | None = None
+    trip_departure: date | None = None
     dishwasher: Slot | None = None
     dishwasher_mode: str | None = None
     peak_kw: float = 0.0
@@ -271,6 +291,7 @@ def make_plan(inputs: Inputs, settings: Settings) -> Plan:
 
     _plan_battery(plan, inputs, settings)
     _plan_car(plan, inputs, settings)
+    _advise_car(plan, inputs, settings)
     _plan_dishwasher(plan, inputs, settings)
     plan.peak_kw = night_peak(
         [s for s in (plan.battery, plan.car, plan.dishwasher) if s is not None],
@@ -363,6 +384,45 @@ def _plan_car(plan: Plan, inputs: Inputs, settings: Settings) -> None:
     if end > plan.night_end:
         plan.reasons.append(Reason.CAR_OVERFLOWS_OFFPEAK)
     plan.car = Slot(start, end, settings.car_charge_kw)
+
+
+def _advise_car(plan: Plan, inputs: Inputs, settings: Settings) -> None:
+    """The car's target for tonight: full price on blue nights, the least on others.
+
+    Tonight is billed at today's off-peak price. Only tomorrow's colour is known
+    beyond it, and Sunday is always blue.
+    """
+    if inputs.car_soc is None:
+        return
+    tomorrow = plan.night_end.date()
+    tonight_blue = inputs.today is Color.BLUE
+    daily = inputs.car_daily_kwh if inputs.car_daily_kwh is not None else settings.car_daily_kwh
+    plan.car_daily_kwh = round(daily, 2)
+    plan.trip_departure = inputs.trip_departure
+
+    if inputs.trip_departure == tomorrow:
+        target, advice = 100.0, Reason.CAR_ADVICE_TRIP
+    elif (
+        inputs.trip_departure == tomorrow + timedelta(days=1)
+        and tonight_blue
+        and plan.tomorrow in (Color.WHITE, Color.RED)
+    ):
+        # Fill up at tonight's blue price; tomorrow night only tops up.
+        target, advice = 100.0, Reason.CAR_ADVICE_TRIP_EARLY
+    elif tonight_blue:
+        target, advice = settings.car_target_pct, Reason.CAR_ADVICE_BLUE_NIGHT
+    else:
+        # Keep the reserve until the next blue night: tomorrow night when
+        # tomorrow is blue, otherwise Sunday night.
+        days = 1 if plan.tomorrow is Color.BLUE else (6 - tomorrow.weekday()) % 7 + 1
+        needed = settings.car_reserve_pct + daily * days / settings.car_capacity_kwh * 100
+        target = min(settings.car_target_pct, float(math.ceil(needed)))
+        advice = Reason.CAR_ADVICE_COVERED if target <= inputs.car_soc else Reason.CAR_ADVICE_BRIDGE
+    plan.car_advice = advice
+    plan.reasons.append(advice)
+    plan.car_advised_target_pct = round(target)
+    missing_kwh = (target - inputs.car_soc) / 100 * settings.car_capacity_kwh
+    plan.car_plug_tonight = missing_kwh / settings.car_efficiency >= settings.car_min_kwh
 
 
 def _plan_dishwasher(plan: Plan, inputs: Inputs, settings: Settings) -> None:
