@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -24,16 +25,20 @@ from .planner import (
     make_plan,
     parse_color,
     peak_load_from_history,
+    peak_totals,
     tempo_day,
 )
+from .review import DayReview, Forecast, night_before, review_day, soc_during, summarize
 
 _LOGGER = logging.getLogger(__name__)
 
 # Statistics read to learn the peak-hour consumption: long enough for a
 # winter's red days.
 HISTORY_WINDOW = timedelta(days=120)
-# Colours of past Tempo days kept in the store.
+# Colours of past Tempo days and reviews kept in the store.
 COLORS_KEPT = timedelta(days=400)
+# Forecasts waiting for their review.
+FORECASTS_KEPT = timedelta(days=30)
 STORAGE_VERSION = 1
 
 type TempoPlannerConfigEntry = ConfigEntry[TempoPlannerCoordinator]
@@ -101,11 +106,15 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         # Hourly house consumption, reloaded once a day.
         self._hours: list[tuple[datetime, float]] = []
         self._hours_day: date | None = None
-        # Colour of each past Tempo day, kept across restarts.
-        self._store: Store[dict[str, dict[str, str]]] = Store(
+        # Kept across restarts: the colour of each past Tempo day, the frozen
+        # forecasts and the reviews.
+        self._store: Store[dict[str, dict[str, Any]]] = Store(
             hass, STORAGE_VERSION, f"{const.DOMAIN}.{entry.entry_id}"
         )
         self._colors: dict[date, Color] | None = None
+        self._forecasts: dict[date, Forecast] = {}
+        self._reviews: dict[date, DayReview] = {}
+        self._reviewed_on: date | None = None
 
     @property
     def watched(self) -> list[str]:
@@ -191,11 +200,21 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         ]
         self._hours_day = today
 
-    async def _async_load_colors(self) -> dict[date, Color]:
-        """Past colours from the store, completed by the recorder's state history."""
+    async def _async_load_store(self) -> dict[date, Color]:
+        """Read the store once; past colours are completed by the recorder."""
         if self._colors is not None:
             return self._colors
         stored = await self._store.async_load() or {}
+        self._forecasts = {
+            day: Forecast.from_dict(day, data)
+            for key, data in stored.get("forecasts", {}).items()
+            if (day := date.fromisoformat(key))
+        }
+        self._reviews = {
+            day: DayReview.from_dict(day, data)
+            for key, data in stored.get("reviews", {}).items()
+            if (day := date.fromisoformat(key))
+        }
         colors = {
             date.fromisoformat(day): color
             for day, value in stored.get("colors", {}).items()
@@ -253,11 +272,92 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         self._colors[day] = inputs.today
         oldest = day - COLORS_KEPT
         self._colors = {d: c for d, c in self._colors.items() if d >= oldest}
-        self._store.async_delay_save(self._colors_data, 10)
+        self._save()
 
-    def _colors_data(self) -> dict[str, dict[str, str]]:
-        colors = self._colors or {}
-        return {"colors": {d.isoformat(): str(c) for d, c in sorted(colors.items())}}
+    def _remember_forecast(self, inputs: Inputs, plan: Plan) -> None:
+        """Freeze the forecast for the next Tempo day until its night starts."""
+        if inputs.now >= plan.night_start:
+            return
+        forecast = Forecast.from_plan(plan)
+        if self._forecasts.get(forecast.day) == forecast:
+            return
+        self._forecasts[forecast.day] = forecast
+        oldest = forecast.day - FORECASTS_KEPT
+        self._forecasts = {d: f for d, f in self._forecasts.items() if d >= oldest}
+        self._save()
+
+    def _save(self) -> None:
+        self._store.async_delay_save(self._store_data, 10)
+
+    def _store_data(self) -> dict[str, dict[str, Any]]:
+        def by_day(items: dict[date, Any], value: Any) -> dict[str, Any]:
+            return {d.isoformat(): value(v) for d, v in sorted(items.items())}
+
+        return {
+            "colors": by_day(self._colors or {}, str),
+            "forecasts": by_day(self._forecasts, lambda f: f.to_dict()),
+            "reviews": by_day(self._reviews, lambda r: r.to_dict()),
+        }
+
+    async def _async_review(self) -> None:
+        """Once a day, review yesterday and any day missed while stopped."""
+        now = dt_util.now()
+        if self._reviewed_on == now.date():
+            return
+        yesterday = now.date() - timedelta(days=1)
+        days = {yesterday} | {
+            d for d in self._forecasts if d < yesterday and d not in self._reviews
+        }
+        totals = peak_totals(self._hours, self._settings)
+        for day in sorted(days):
+            start, end = night_before(day, self._settings, now.tzinfo)
+            review = review_day(
+                day,
+                self._forecasts.get(day),
+                totals.get(day),
+                soc_during(await self._async_soc_history(start, end), start, end),
+                (self._colors or {}).get(day),
+            )
+            if review is not None:
+                self._reviews[day] = review
+        oldest = yesterday - COLORS_KEPT
+        self._reviews = {d: r for d, r in self._reviews.items() if d >= oldest}
+        self._reviewed_on = now.date()
+        self._save()
+
+    async def _async_soc_history(
+        self, start: datetime, end: datetime
+    ) -> list[tuple[datetime, float]]:
+        """Battery levels recorded during a night, the one before it included."""
+        entity_id = self._config.get(const.CONF_BATTERY_SOC)
+        if not entity_id or not self._recorder_ready():
+            return []
+
+        from homeassistant.components.recorder import get_instance, history
+
+        try:
+            found = await get_instance(self.hass).async_add_executor_job(
+                history.get_significant_states,
+                self.hass,
+                start,
+                end,
+                [entity_id],
+                None,
+                True,  # include_start_time_state
+                False,  # significant_changes_only
+                False,  # minimal_response
+                True,  # no_attributes
+            )
+        except Exception:  # noqa: BLE001 - a review without the battery is still useful
+            _LOGGER.exception("Cannot read the history of %s", entity_id)
+            return []
+        samples = []
+        for state in found.get(entity_id, []):
+            try:
+                samples.append((state.last_changed, float(state.state)))
+            except ValueError:
+                continue
+        return sorted(samples)
 
     def read_inputs(self) -> Inputs:
         return Inputs(
@@ -278,11 +378,17 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         )
 
     async def _async_update_data(self) -> Plan:
-        colors = await self._async_load_colors()
+        colors = await self._async_load_store()
         await self._async_load_hours()
+        await self._async_review()
         inputs = self.read_inputs()
         self._remember_today(inputs)
         peak_load: PeakLoad | None = None
         if self._hours:
             peak_load = peak_load_from_history(self._hours, self._settings, colors, inputs.tomorrow)
-        return make_plan(replace(inputs, peak_load=peak_load), self._settings)
+        plan = make_plan(replace(inputs, peak_load=peak_load), self._settings)
+        self._remember_forecast(inputs, plan)
+        if self._reviews:
+            plan.review = self._reviews[max(self._reviews)]
+            plan.summary = summarize(list(self._reviews.values()))
+        return plan

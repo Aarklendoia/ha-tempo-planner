@@ -14,6 +14,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .review import DayReview, Summary
 
 
 class Color(StrEnum):
@@ -135,17 +139,11 @@ def tempo_day(now: datetime, settings: Settings) -> date:
     return now.date()
 
 
-def peak_load_from_history(
-    hours: list[tuple[datetime, float]],
-    settings: Settings,
-    colors: dict[date, Color] | None = None,
-    color: Color | None = None,
-) -> PeakLoad | None:
-    """Average peak-hour consumption of past days whose every peak hour is known.
+def peak_totals(hours: list[tuple[datetime, float]], settings: Settings) -> dict[date, float]:
+    """Peak-hour consumption of each day whose every peak hour is known.
 
     `hours` holds the start of each hour, in local time, and the energy the house
-    used during it. With the colour of past days, the most recent days of `color`
-    are averaged, when there are enough of them; otherwise the most recent days.
+    used during it.
     """
     per_day: dict[date, list[float]] = defaultdict(list)
     for start, kwh in hours:
@@ -155,7 +153,21 @@ def peak_load_from_history(
         datetime.combine(date.min, settings.offpeak_start)
         - datetime.combine(date.min, settings.offpeak_end)
     ) // timedelta(hours=1)
-    totals = {day: sum(v) for day, v in per_day.items() if len(v) == peak_hours}
+    return {day: sum(v) for day, v in per_day.items() if len(v) == peak_hours}
+
+
+def peak_load_from_history(
+    hours: list[tuple[datetime, float]],
+    settings: Settings,
+    colors: dict[date, Color] | None = None,
+    color: Color | None = None,
+) -> PeakLoad | None:
+    """Average peak-hour consumption of past days whose every peak hour is known.
+
+    With the colour of past days, the most recent days of `color`
+    are averaged, when there are enough of them; otherwise the most recent days.
+    """
+    totals = peak_totals(hours, settings)
     recent = sorted(totals, reverse=True)
     if not recent:
         return None
@@ -231,6 +243,10 @@ class Plan:
     dishwasher_mode: str | None = None
     peak_kw: float = 0.0
     reasons: list[Reason] = field(default_factory=list)
+    # The last Tempo day reviewed, and the last reviews at a glance; filled in
+    # by the coordinator.
+    review: DayReview | None = None
+    summary: Summary | None = None
 
 
 def next_night(now: datetime, settings: Settings) -> tuple[datetime, datetime]:

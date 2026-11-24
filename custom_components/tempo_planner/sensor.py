@@ -23,6 +23,32 @@ from .const import DOMAIN
 from .coordinator import TempoPlannerConfigEntry, TempoPlannerCoordinator
 from .planner import Color, Plan, Slot
 from .reasons import explain
+from .review import BatteryOutcome
+
+
+def _peak_review(plan: Plan, _: str) -> dict[str, Any]:
+    review, summary = plan.review, plan.summary
+    return {
+        "day": review.day.isoformat() if review else None,
+        "color": str(review.color) if review else None,
+        "forecast": review.forecast_kwh if review else None,
+        "error": review.error_kwh if review else None,
+        "mean_abs_error": summary.mean_abs_error_kwh if summary else None,
+        "days": summary.error_days if summary else 0,
+    }
+
+
+def _battery_review(plan: Plan, _: str) -> dict[str, Any]:
+    review, summary = plan.review, plan.summary
+    return {
+        "day": review.day.isoformat() if review else None,
+        "planned_charge": review.planned_charge if review else None,
+        "level_start": review.soc_start if review else None,
+        "level_max": review.soc_max if review else None,
+        "level_end": review.soc_end if review else None,
+        "agreement": summary.agreement_pct if summary else None,
+        "nights": summary.nights if summary else 0,
+    }
 
 
 def _start(slot: Slot | None) -> datetime | None:
@@ -133,6 +159,23 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         translation_key="dishwasher_end",
         device_class=SensorDeviceClass.TIMESTAMP,
         value=lambda p: _end(p.dishwasher),
+    ),
+    PlanSensorDescription(
+        key="last_day_peak_load",
+        translation_key="last_day_peak_load",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=1,
+        value=lambda p: p.review.actual_kwh if p.review else None,
+        attributes=_peak_review,
+    ),
+    PlanSensorDescription(
+        key="last_night_battery",
+        translation_key="last_night_battery",
+        device_class=SensorDeviceClass.ENUM,
+        options=[str(o) for o in BatteryOutcome],
+        value=lambda p: str(o) if p.review and (o := p.review.battery_outcome) else None,
+        attributes=_battery_review,
     ),
     PlanSensorDescription(
         key="night_peak",
