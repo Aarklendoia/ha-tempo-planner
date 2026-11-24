@@ -15,6 +15,7 @@ from custom_components.tempo_planner.planner import (
     next_night,
     night_peak,
     parse_color,
+    subtract_hours,
 )
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -431,3 +432,12 @@ def test_no_car_advice_without_its_level():
     plan = make_plan(Inputs(now=at(23, 16), today=Color.BLUE, tomorrow=Color.WHITE), CAR)
     assert plan.car_advice is None
     assert plan.car_plug_tonight is None
+
+
+def test_subtract_hours():
+    house = [(at(22, 10), 1.0), (at(22, 11), 0.5), (at(22, 12), 0.8)]
+    # More than the house in one hour (meters are not read at the same instant),
+    # and nothing recorded at 12:00.
+    car = [(at(22, 10), 0.75), (at(22, 11), 0.6), (at(22, 13), 2.0)]
+    assert subtract_hours(house, car) == [(at(22, 10), 0.25), (at(22, 11), 0.0), (at(22, 12), 0.8)]
+    assert subtract_hours(house, []) == house

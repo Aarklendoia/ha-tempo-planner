@@ -26,6 +26,7 @@ from .planner import (
     parse_color,
     peak_load_from_history,
     peak_totals,
+    subtract_hours,
     tempo_day,
 )
 from .review import (
@@ -137,11 +138,11 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
 
     @property
     def watched(self) -> list[str]:
-        # The house energy meter moves all the time; its history is read daily.
+        # The energy meters move all the time; their history is read daily.
         return [
             e
             for k in const.ENTITY_KEYS
-            if k != const.CONF_HOUSE_ENERGY and (e := self._config.get(k))
+            if k not in const.HISTORY_KEYS and (e := self._config.get(k))
         ]
 
     @callback
@@ -185,8 +186,12 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         return "recorder" in self.hass.config.components
 
     async def _async_load_hours(self) -> None:
-        """Hourly house consumption from the recorder's statistics, once a day."""
+        """Hourly house consumption from the recorder's statistics, once a day.
+
+        With a car meter, the car's charging is taken out of it.
+        """
         entity_id = self._config.get(const.CONF_HOUSE_ENERGY)
+        car_id = self._config.get(const.CONF_CAR_ENERGY)
         if not entity_id or not self._recorder_ready():
             return
         today = dt_util.now().date()
@@ -204,7 +209,7 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
                 self.hass,
                 end - HISTORY_WINDOW,
                 end,
-                {entity_id},
+                {entity_id, car_id} - {None},
                 "hour",
                 {"energy": "kWh"},
                 {"change"},
@@ -212,11 +217,15 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         except Exception:  # noqa: BLE001 - the setting is a good enough fallback
             _LOGGER.exception("Cannot read the history of %s", entity_id)
             return
-        self._hours = [
-            (dt_util.as_local(dt_util.utc_from_timestamp(row["start"])), row["change"])
-            for row in stats.get(entity_id, [])
-            if row.get("change") is not None
-        ]
+
+        def hours(statistic_id: str | None) -> list[tuple[datetime, float]]:
+            return [
+                (dt_util.as_local(dt_util.utc_from_timestamp(row["start"])), row["change"])
+                for row in stats.get(statistic_id, [])
+                if row.get("change") is not None
+            ]
+
+        self._hours = subtract_hours(hours(entity_id), hours(car_id))
         self._hours_day = today
 
     async def _async_load_store(self) -> dict[date, Color]:

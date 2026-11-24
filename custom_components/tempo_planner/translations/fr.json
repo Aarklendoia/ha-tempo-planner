@@ -15,6 +15,7 @@
           "trip_calendar_entity": "Calendrier des voyages",
           "car_target_entity": "Objectif de charge de la voiture",
           "house_energy_entity": "Consommation de la maison",
+          "car_energy_entity": "Énergie de charge de la voiture",
           "price_blue_offpeak_entity": "Tarif bleu heures creuses",
           "price_blue_peak_entity": "Tarif bleu heures pleines",
           "price_white_offpeak_entity": "Tarif blanc heures creuses",
@@ -34,6 +35,7 @@
           "trip_calendar_entity": "Les événements dont le titre contient le mot-clé de voyage signalent un long trajet : la voiture est remplie la veille.",
           "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé.",
           "house_energy_entity": "Un compteur d'énergie de ce que consomme la maison (kWh, avec statistiques à long terme), pas le soutirage réseau. Son historique remplace le réglage de consommation en heures pleines.",
+          "car_energy_entity": "Un compteur d'énergie de la borne de la voiture (kWh, avec statistiques à long terme). Seulement si le compteur de la maison ci-dessus inclut la borne : sa consommation horaire est alors retirée de l'historique de la maison.",
           "price_red_peak_entity": "Tarifs en €/kWh. Sans entité, un tarif Tempo par défaut est utilisé (bleu 0,1356 / 0,1654, blanc 0,1536 / 0,1921, rouge 0,1611 / 0,73)."
         },
         "description": "Choisissez les entités que le planificateur lit. Seule la couleur de demain est obligatoire."
@@ -101,6 +103,7 @@
           "trip_calendar_entity": "Calendrier des voyages",
           "car_target_entity": "Objectif de charge de la voiture",
           "house_energy_entity": "Consommation de la maison",
+          "car_energy_entity": "Énergie de charge de la voiture",
           "price_blue_offpeak_entity": "Tarif bleu heures creuses",
           "price_blue_peak_entity": "Tarif bleu heures pleines",
           "price_white_offpeak_entity": "Tarif blanc heures creuses",
@@ -120,6 +123,7 @@
           "trip_calendar_entity": "Les événements dont le titre contient le mot-clé de voyage signalent un long trajet : la voiture est remplie la veille.",
           "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé.",
           "house_energy_entity": "Un compteur d'énergie de ce que consomme la maison (kWh, avec statistiques à long terme), pas le soutirage réseau. Son historique remplace le réglage de consommation en heures pleines.",
+          "car_energy_entity": "Un compteur d'énergie de la borne de la voiture (kWh, avec statistiques à long terme). Seulement si le compteur de la maison ci-dessus inclut la borne : sa consommation horaire est alors retirée de l'historique de la maison.",
           "price_red_peak_entity": "Tarifs en €/kWh. Sans entité, un tarif Tempo par défaut est utilisé (bleu 0,1356 / 0,1654, blanc 0,1536 / 0,1921, rouge 0,1611 / 0,73)."
         }
       },

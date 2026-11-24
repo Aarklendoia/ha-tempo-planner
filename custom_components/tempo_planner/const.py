@@ -17,6 +17,9 @@ CONF_TRIP_CALENDAR = "trip_calendar_entity"
 CONF_CAR_TARGET = "car_target_entity"
 # Read from the recorder's statistics once a day, not watched.
 CONF_HOUSE_ENERGY = "house_energy_entity"
+# Subtracted from the house history when the house meter includes the charger.
+CONF_CAR_ENERGY = "car_energy_entity"
+HISTORY_KEYS = (CONF_HOUSE_ENERGY, CONF_CAR_ENERGY)
 
 # One price entity per colour and period, keyed like planner.DEFAULT_PRICES.
 PRICE_KEYS = (
@@ -41,6 +44,7 @@ ENTITY_KEYS = (
     CONF_TRIP_CALENDAR,
     CONF_CAR_TARGET,
     CONF_HOUSE_ENERGY,
+    CONF_CAR_ENERGY,
     *CONF_PRICES.values(),
 )
 

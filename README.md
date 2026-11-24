@@ -91,8 +91,9 @@ or `blue`/`white`/`red`, such as the next colour of the
 the solar forecast for tomorrow and its peak time (Forecast.Solar, Solcast…),
 today's colour (the current colour of RTE Tempo; without it the night is
 priced as white), the home battery and car states of charge, whether the car is
-plugged in, the car's charge target, the house consumption meter, and the six
-Tempo prices in EUR/kWh (without them, default prices are used).
+plugged in, the car's charge target, the house consumption meter, the car's
+charging meter, and the six Tempo prices in EUR/kWh (without them, default
+prices are used).
 
 With a house consumption meter (an energy sensor of what the house uses, with
 long-term statistics — not the grid import, which already nets out solar and the
@@ -103,6 +104,11 @@ most recent days of any colour are used instead. The colour of each day comes
 from today's colour entity: the planner remembers it from day to day, and fills
 in the first days from the recorder's state history. Without a meter, or until
 a full day is recorded, the setting applies.
+
+When the house meter measures the whole panel, the car's charger is part of it.
+Set the car's charging meter (an energy sensor of the charger, with long-term
+statistics) and its consumption is taken out of the house history, hour by hour:
+a charge in the sun during peak hours then no longer counts as house load.
 
 The house itself (capacities, powers, consumption during peak hours, programme
 length…) is set in the integration's options.
@@ -147,7 +153,9 @@ vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
   blanc ni avant un jour bleu. La consommation en heures pleines est apprise de
   l'historique d'un compteur de consommation de la maison : moyenne des 14
   derniers jours de la couleur de demain (des jours les plus récents tant qu'il
-  y en a moins de 3), ou à défaut tirée du réglage.
+  y en a moins de 3), ou à défaut tirée du réglage. Si ce compteur inclut la
+  borne, un compteur de charge de la voiture en retire la recharge, heure par
+  heure.
 - **Voiture** : charge jusqu'à l'objectif. Par défaut, elle démarre dès
   l'ouverture des heures creuses, comme une voiture qui suit son propre
   programme ; pour une borne pilotée plus tard, elle peut finir juste avant la

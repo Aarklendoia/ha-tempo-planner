@@ -27,13 +27,18 @@ def mock_recorder_before_hass(async_setup_recorder_instance) -> None:
     """Start the recorder before Home Assistant."""
 
 
-def import_hours(hass: HomeAssistant, kwh_per_hour: dict[int, float]) -> None:
-    """Hourly statistics of the house meter, for whole days of November."""
+def import_hours(
+    hass: HomeAssistant,
+    kwh_per_hour: dict[int, float],
+    statistic_id: str = "sensor.house_energy",
+    hours: range = range(24),
+) -> None:
+    """Hourly statistics of an energy meter, for days of November."""
     rows = []
     total = 0.0
     for day, kwh in sorted(kwh_per_hour.items()):
         start = datetime(2026, 11, day, 0, 0, tzinfo=PARIS)
-        for hour in range(24):
+        for hour in hours:
             total += kwh
             rows.append({"start": dt_util.as_utc(start + timedelta(hours=hour)), "sum": total})
     async_import_statistics(
@@ -43,7 +48,7 @@ def import_hours(hass: HomeAssistant, kwh_per_hour: dict[int, float]) -> None:
             "has_sum": True,
             "name": None,
             "source": "recorder",
-            "statistic_id": "sensor.house_energy",
+            "statistic_id": statistic_id,
             "unit_class": "energy",
             "unit_of_measurement": "kWh",
         },
@@ -51,7 +56,7 @@ def import_hours(hass: HomeAssistant, kwh_per_hour: dict[int, float]) -> None:
     )
 
 
-async def setup_planner(hass: HomeAssistant) -> MockConfigEntry:
+async def setup_planner(hass: HomeAssistant, **extra: str) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=const.DOMAIN,
         entry_id="planner",
@@ -59,6 +64,7 @@ async def setup_planner(hass: HomeAssistant) -> MockConfigEntry:
             **ENTITIES,
             const.CONF_HOUSE_ENERGY: "sensor.house_energy",
             const.CONF_CAR_CHARGING: "binary_sensor.car_charging",
+            **extra,
         },
         options=SETTINGS,
         unique_id=const.DOMAIN,
@@ -93,6 +99,21 @@ async def test_peak_load_from_the_recorder(recorder_mock, hass: HomeAssistant, h
     assert peak(hass).attributes["color"] == "all"
     # 12 kWh, 3 from the sun: 9 kWh above the 5 % reserve of a 10 kWh battery.
     assert hass.states.get("sensor.tempo_planner_home_battery_target").state == "95"
+
+
+async def test_car_charging_is_taken_out_of_the_house(
+    recorder_mock, hass: HomeAssistant, house
+) -> None:
+    # The house meter includes the charger: 1 kWh an hour on the 22nd, of which
+    # the car took 0.75 kWh an hour from 10:00 to 13:59 (in the sun).
+    import_hours(hass, {21: 0.5, 22: 1.0})
+    import_hours(hass, {22: 0.75}, "sensor.car_energy", range(10, 14))
+    await async_wait_recording_done(hass)
+    await setup_planner(hass, **{const.CONF_CAR_ENERGY: "sensor.car_energy"})
+
+    # 8 kWh, then 16 - 4 * 0.75 = 13 kWh: (8 + 13) / 2.
+    assert float(peak(hass).state) == 10.5
+    assert peak(hass).attributes["days"] == 2
 
 
 async def test_peak_load_of_tomorrows_colour(

@@ -15,6 +15,7 @@
           "trip_calendar_entity": "Trip calendar",
           "car_target_entity": "Car charge target",
           "house_energy_entity": "House consumption",
+          "car_energy_entity": "Car charging energy",
           "price_blue_offpeak_entity": "Price, blue off-peak",
           "price_blue_peak_entity": "Price, blue peak",
           "price_white_offpeak_entity": "Price, white off-peak",
@@ -34,6 +35,7 @@
           "trip_calendar_entity": "Events whose title contains the trip keyword mark a long trip: the car is filled the night before.",
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
           "house_energy_entity": "An energy meter of what the house uses (kWh, with long-term statistics), not the grid import. Its history replaces the peak-hour consumption setting.",
+          "car_energy_entity": "An energy meter of the car's charger (kWh, with long-term statistics). Only when the house meter above includes the charger: its hourly consumption is then taken out of the house history.",
           "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
         },
         "description": "Choose the entities the planner reads. Only tomorrow's colour is required."
@@ -101,6 +103,7 @@
           "trip_calendar_entity": "Trip calendar",
           "car_target_entity": "Car charge target",
           "house_energy_entity": "House consumption",
+          "car_energy_entity": "Car charging energy",
           "price_blue_offpeak_entity": "Price, blue off-peak",
           "price_blue_peak_entity": "Price, blue peak",
           "price_white_offpeak_entity": "Price, white off-peak",
@@ -120,6 +123,7 @@
           "trip_calendar_entity": "Events whose title contains the trip keyword mark a long trip: the car is filled the night before.",
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
           "house_energy_entity": "An energy meter of what the house uses (kWh, with long-term statistics), not the grid import. Its history replaces the peak-hour consumption setting.",
+          "car_energy_entity": "An energy meter of the car's charger (kWh, with long-term statistics). Only when the house meter above includes the charger: its hourly consumption is then taken out of the house history.",
           "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
         }
       },
