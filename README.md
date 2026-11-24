@@ -37,6 +37,7 @@ power you allow.
 | Sensor | Value |
 | --- | --- |
 | Tomorrow | colour of the next Tempo day; attributes: the night's window, the reasons behind the plan and their explanation in your language |
+| Peak-hour consumption | what the house should use during tomorrow's peak hours, kWh; attributes: `source` (`history` or `setting`) and the number of `days` behind it |
 | Home battery target | state of charge to reach, % |
 | Home battery grid charge | energy to take from the grid, kWh; attributes: tonight's off-peak price, tomorrow's peak price and the saving per kWh |
 | Home battery charge start / end | the battery's slot |
@@ -59,8 +60,14 @@ or `blue`/`white`/`red`, such as the next colour of the
 the solar forecast for tomorrow and its peak time (Forecast.Solar, Solcast…),
 today's colour (the current colour of RTE Tempo; without it the night is
 priced as white), the home battery and car states of charge, whether the car is
-plugged in, the car's charge target, and the six Tempo prices in EUR/kWh
-(without them, default prices are used).
+plugged in, the car's charge target, the house consumption meter, and the six
+Tempo prices in EUR/kWh (without them, default prices are used).
+
+With a house consumption meter (an energy sensor of what the house uses, with
+long-term statistics — not the grid import, which already nets out solar and the
+battery), the peak-hour consumption is learnt from the recorder: the average of
+the last 14 days (adjustable) whose peak hours are all recorded, read once a
+day. Without it, or until a full day is recorded, the setting applies.
 
 The house itself (capacities, powers, consumption during peak hours, programme
 length…) is set in the integration's options.
@@ -102,7 +109,9 @@ vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
   pleines du lendemain : la charge n'a lieu que si l'écart, pertes comprises,
   dépasse un seuil d'usure réglable (3 c/kWh par défaut). Avec les tarifs par
   défaut : avant chaque jour rouge et les nuits bleu → blanc, jamais blanc →
-  blanc ni avant un jour bleu.
+  blanc ni avant un jour bleu. La consommation en heures pleines est apprise de
+  l'historique d'un compteur de consommation de la maison (moyenne des 14
+  derniers jours), ou à défaut tirée du réglage.
 - **Voiture** : charge jusqu'à l'objectif, en finissant juste avant la fin des
   heures creuses plutôt qu'en démarrant à 22 h avec tout le reste.
 - **Lave-vaisselle** : un jour bleu bien ensoleillé, autour du pic solaire ;

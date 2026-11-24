@@ -1,6 +1,9 @@
 {
   "domain": "tempo_planner",
   "name": "Tempo Planner",
+  "after_dependencies": [
+    "recorder"
+  ],
   "codeowners": [
     "@Aarklendoia"
   ],

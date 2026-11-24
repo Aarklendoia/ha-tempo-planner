@@ -12,6 +12,7 @@
           "car_soc_entity": "Car battery charge",
           "car_plugged_entity": "Car plugged in",
           "car_target_entity": "Car charge target",
+          "house_energy_entity": "House consumption",
           "price_blue_offpeak_entity": "Price, blue off-peak",
           "price_blue_peak_entity": "Price, blue peak",
           "price_white_offpeak_entity": "Price, white off-peak",
@@ -28,6 +29,7 @@
           "car_soc_entity": "State of charge of the car, in %.",
           "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
+          "house_energy_entity": "An energy meter of what the house uses (kWh, with long-term statistics), not the grid import. Its history replaces the peak-hour consumption setting.",
           "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
         },
         "description": "Choose the entities the planner reads. Only tomorrow's colour is required."
@@ -39,6 +41,7 @@
           "offpeak_end": "Off-peak end",
           "max_power_kw": "Power available for the planned loads",
           "peak_load_kwh": "House consumption during peak hours",
+          "peak_load_days": "Days of history",
           "battery_capacity_kwh": "Home battery capacity",
           "battery_reserve_pct": "Home battery reserve",
           "battery_charge_kw": "Home battery grid charging power",
@@ -52,7 +55,8 @@
         },
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
-          "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar.",
+          "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar. Used when no house consumption entity is chosen or its history is still empty.",
+          "peak_load_days": "How many past days are averaged to learn the peak-hour consumption.",
           "battery_min_gain_ct": "Per kWh given back by the battery, after its losses. Set it to what a cycle costs in wear: battery price divided by its guaranteed cycles and capacity.",
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
@@ -78,6 +82,7 @@
           "car_soc_entity": "Car battery charge",
           "car_plugged_entity": "Car plugged in",
           "car_target_entity": "Car charge target",
+          "house_energy_entity": "House consumption",
           "price_blue_offpeak_entity": "Price, blue off-peak",
           "price_blue_peak_entity": "Price, blue peak",
           "price_white_offpeak_entity": "Price, white off-peak",
@@ -94,6 +99,7 @@
           "car_soc_entity": "State of charge of the car, in %.",
           "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
+          "house_energy_entity": "An energy meter of what the house uses (kWh, with long-term statistics), not the grid import. Its history replaces the peak-hour consumption setting.",
           "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
         }
       },
@@ -104,6 +110,7 @@
           "offpeak_end": "Off-peak end",
           "max_power_kw": "Power available for the planned loads",
           "peak_load_kwh": "House consumption during peak hours",
+          "peak_load_days": "Days of history",
           "battery_capacity_kwh": "Home battery capacity",
           "battery_reserve_pct": "Home battery reserve",
           "battery_charge_kw": "Home battery grid charging power",
@@ -117,7 +124,8 @@
         },
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
-          "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar.",
+          "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar. Used when no house consumption entity is chosen or its history is still empty.",
+          "peak_load_days": "How many past days are averaged to learn the peak-hour consumption.",
           "battery_min_gain_ct": "Per kWh given back by the battery, after its losses. Set it to what a cycle costs in wear: battery price divided by its guaranteed cycles and capacity.",
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
@@ -129,6 +137,21 @@
   },
   "entity": {
     "sensor": {
+      "peak_load": {
+        "name": "Peak-hour consumption",
+        "state_attributes": {
+          "source": {
+            "name": "Source",
+            "state": {
+              "history": "History",
+              "setting": "Setting"
+            }
+          },
+          "days": {
+            "name": "Days of history"
+          }
+        }
+      },
       "tomorrow": {
         "name": "Tomorrow",
         "state": {

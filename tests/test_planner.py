@@ -241,3 +241,49 @@ def test_explanations():
     # Unknown language: English. Every reason has a text in every language.
     assert explain(list(Reason), "de") == explain(list(Reason), "en")
     assert len(explain(list(Reason), "fr")) == len(Reason)
+
+
+def hours_of(day: int, kwh_per_hour: float, first: int = 0, last: int = 24) -> list:
+    return [(at(day, h), kwh_per_hour) for h in range(first, last)]
+
+
+def test_peak_load_averages_complete_days():
+    from custom_components.tempo_planner.planner import peak_load_from_history
+
+    hours = [
+        *hours_of(20, 0.5),  # 16 peak hours: 8 kWh
+        *hours_of(21, 1.0),  # 16 kWh
+        *hours_of(22, 1.0, last=20),  # missing 20:00 and 21:00: skipped
+    ]
+    result = peak_load_from_history(hours, Settings())
+    assert result.kwh == 12.0
+    assert result.days == 2
+
+
+def test_peak_load_without_a_complete_day():
+    from custom_components.tempo_planner.planner import peak_load_from_history
+
+    assert peak_load_from_history([], Settings()) is None
+    assert peak_load_from_history(hours_of(22, 1.0, first=10), Settings()) is None
+
+
+def test_history_replaces_the_setting():
+    from custom_components.tempo_planner.planner import PeakLoad
+
+    inputs = Inputs(
+        now=at(22, 16),
+        today=Color.BLUE,
+        tomorrow=Color.WHITE,
+        solar_tomorrow_kwh=0,
+        battery_soc=5,
+    )
+    s = Settings(peak_load_kwh=4, battery_capacity_kwh=10, battery_reserve_pct=5)
+    assert make_plan(inputs, s).battery_target_pct == 45
+    assert make_plan(inputs, s).peak_load_days is None
+
+    from dataclasses import replace
+
+    plan = make_plan(replace(inputs, peak_load=PeakLoad(kwh=6, days=14)), s)
+    assert plan.peak_load_kwh == 6
+    assert plan.peak_load_days == 14
+    assert plan.battery_target_pct == 65
