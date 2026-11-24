@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 import logging
 
@@ -9,11 +10,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from . import const
 from .planner import (
+    Color,
     Inputs,
     PeakLoad,
     Plan,
@@ -21,9 +24,17 @@ from .planner import (
     make_plan,
     parse_color,
     peak_load_from_history,
+    tempo_day,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Statistics read to learn the peak-hour consumption: long enough for a
+# winter's red days.
+HISTORY_WINDOW = timedelta(days=120)
+# Colours of past Tempo days kept in the store.
+COLORS_KEPT = timedelta(days=400)
+STORAGE_VERSION = 1
 
 type TempoPlannerConfigEntry = ConfigEntry[TempoPlannerCoordinator]
 
@@ -87,8 +98,14 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         )
         self._config = entry_config(entry)
         self._settings = settings_from(self._config)
-        self._peak_load: PeakLoad | None = None
-        self._peak_load_day: date | None = None
+        # Hourly house consumption, reloaded once a day.
+        self._hours: list[tuple[datetime, float]] = []
+        self._hours_day: date | None = None
+        # Colour of each past Tempo day, kept across restarts.
+        self._store: Store[dict[str, dict[str, str]]] = Store(
+            hass, STORAGE_VERSION, f"{const.DOMAIN}.{entry.entry_id}"
+        )
+        self._colors: dict[date, Color] | None = None
 
     @property
     def watched(self) -> list[str]:
@@ -136,26 +153,28 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         # A binary sensor, or the Renault plug status ("plugged" / "unplugged").
         return value in (STATE_ON, "plugged")
 
-    async def _async_peak_load(self) -> PeakLoad | None:
-        """Peak-hour consumption from the recorder, read once a day."""
+    def _recorder_ready(self) -> bool:
+        return "recorder" in self.hass.config.components
+
+    async def _async_load_hours(self) -> None:
+        """Hourly house consumption from the recorder's statistics, once a day."""
         entity_id = self._config.get(const.CONF_HOUSE_ENERGY)
-        if not entity_id or "recorder" not in self.hass.config.components:
-            return None
+        if not entity_id or not self._recorder_ready():
+            return
         today = dt_util.now().date()
-        if self._peak_load_day == today:
-            return self._peak_load
+        if self._hours_day == today:
+            return
 
         # Imported here: the recorder is only an after-dependency.
         from homeassistant.components.recorder import get_instance
         from homeassistant.components.recorder.statistics import statistics_during_period
 
         end = dt_util.start_of_local_day()
-        start = end - timedelta(days=self._settings.peak_load_days)
         try:
             stats = await get_instance(self.hass).async_add_executor_job(
                 statistics_during_period,
                 self.hass,
-                start,
+                end - HISTORY_WINDOW,
                 end,
                 {entity_id},
                 "hour",
@@ -164,19 +183,83 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
             )
         except Exception:  # noqa: BLE001 - the setting is a good enough fallback
             _LOGGER.exception("Cannot read the history of %s", entity_id)
-            return None
-        hours = [
+            return
+        self._hours = [
             (dt_util.as_local(dt_util.utc_from_timestamp(row["start"])), row["change"])
             for row in stats.get(entity_id, [])
             if row.get("change") is not None
         ]
-        self._peak_load = peak_load_from_history(hours, self._settings)
-        self._peak_load_day = today
-        if self._peak_load is None:
-            _LOGGER.info("No complete day in the history of %s yet", entity_id)
-        return self._peak_load
+        self._hours_day = today
 
-    def read_inputs(self, peak_load: PeakLoad | None = None) -> Inputs:
+    async def _async_load_colors(self) -> dict[date, Color]:
+        """Past colours from the store, completed by the recorder's state history."""
+        if self._colors is not None:
+            return self._colors
+        stored = await self._store.async_load() or {}
+        colors = {
+            date.fromisoformat(day): color
+            for day, value in stored.get("colors", {}).items()
+            if (color := parse_color(value)) is not Color.UNKNOWN
+        }
+        for day, color in (await self._async_recorded_colors()).items():
+            colors.setdefault(day, color)
+        self._colors = colors
+        return colors
+
+    async def _async_recorded_colors(self) -> dict[date, Color]:
+        """Colour of each day the recorder still has, read at noon."""
+        entity_id = self._config.get(const.CONF_TODAY_COLOR)
+        if not entity_id or not self._recorder_ready():
+            return {}
+
+        from homeassistant.components.recorder import get_instance, history
+
+        now = dt_util.now()
+        start = dt_util.start_of_local_day() - HISTORY_WINDOW
+        try:
+            found = await get_instance(self.hass).async_add_executor_job(
+                history.get_significant_states,
+                self.hass,
+                start,
+                now,
+                [entity_id],
+                None,
+                True,  # include_start_time_state
+                False,  # significant_changes_only
+                False,  # minimal_response
+                True,  # no_attributes
+            )
+        except Exception:  # noqa: BLE001 - the store fills up day after day anyway
+            _LOGGER.exception("Cannot read the history of %s", entity_id)
+            return {}
+        states = sorted(found.get(entity_id, []), key=lambda st: st.last_changed)
+        colors: dict[date, Color] = {}
+        day = start.date()
+        while day < tempo_day(now, self._settings):
+            noon = datetime.combine(day, time(12), now.tzinfo)
+            before = [st for st in states if st.last_changed <= noon]
+            if before and (color := parse_color(before[-1].state)) is not Color.UNKNOWN:
+                colors[day] = color
+            day += timedelta(days=1)
+        return colors
+
+    def _remember_today(self, inputs: Inputs) -> None:
+        """Store the colour of the Tempo day in progress."""
+        if self._colors is None or inputs.today is Color.UNKNOWN:
+            return
+        day = tempo_day(inputs.now, self._settings)
+        if self._colors.get(day) is inputs.today:
+            return
+        self._colors[day] = inputs.today
+        oldest = day - COLORS_KEPT
+        self._colors = {d: c for d, c in self._colors.items() if d >= oldest}
+        self._store.async_delay_save(self._colors_data, 10)
+
+    def _colors_data(self) -> dict[str, dict[str, str]]:
+        colors = self._colors or {}
+        return {"colors": {d.isoformat(): str(c) for d, c in sorted(colors.items())}}
+
+    def read_inputs(self) -> Inputs:
         return Inputs(
             now=dt_util.now(),
             tomorrow=parse_color(self._state(const.CONF_TOMORROW_COLOR)),
@@ -192,9 +275,14 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
             car_soc=self._number(const.CONF_CAR_SOC),
             car_plugged=self._plugged(),
             car_target_pct=self._number(const.CONF_CAR_TARGET),
-            peak_load=peak_load,
         )
 
     async def _async_update_data(self) -> Plan:
-        peak_load = await self._async_peak_load()
-        return make_plan(self.read_inputs(peak_load), self._settings)
+        colors = await self._async_load_colors()
+        await self._async_load_hours()
+        inputs = self.read_inputs()
+        self._remember_today(inputs)
+        peak_load: PeakLoad | None = None
+        if self._hours:
+            peak_load = peak_load_from_history(self._hours, self._settings, colors, inputs.tomorrow)
+        return make_plan(replace(inputs, peak_load=peak_load), self._settings)
