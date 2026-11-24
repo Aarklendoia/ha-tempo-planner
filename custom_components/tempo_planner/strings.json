@@ -11,6 +11,7 @@
           "battery_soc_entity": "Home battery charge",
           "car_soc_entity": "Car battery charge",
           "car_plugged_entity": "Car plugged in",
+          "car_charging_entity": "Car charging",
           "car_target_entity": "Car charge target",
           "house_energy_entity": "House consumption",
           "price_blue_offpeak_entity": "Price, blue off-peak",
@@ -28,6 +29,7 @@
           "battery_soc_entity": "State of charge of the home battery, in %.",
           "car_soc_entity": "State of charge of the car, in %.",
           "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
+          "car_charging_entity": "A binary sensor that is on while the car charges. With the car's level, it shows in the daily review when the car actually charged.",
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
           "house_energy_entity": "An energy meter of what the house uses (kWh, with long-term statistics), not the grid import. Its history replaces the peak-hour consumption setting.",
           "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
@@ -51,7 +53,8 @@
           "car_target_pct": "Car charge target",
           "dishwasher_minutes": "Dishwasher programme length",
           "dishwasher_solar_kwh": "Solar forecast for a daytime dishwasher run",
-          "car_min_kwh": "Minimum car charge"
+          "car_min_kwh": "Minimum car charge",
+          "car_starts_at_offpeak": "The car starts charging when the off-peak hours open"
         },
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
@@ -60,7 +63,8 @@
           "battery_min_gain_ct": "Per kWh given back by the battery, after its losses. Set it to what a cycle costs in wear: battery price divided by its guaranteed cycles and capacity.",
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
-          "car_min_kwh": "Below this, no charge is planned."
+          "car_min_kwh": "Below this, no charge is planned.",
+          "car_starts_at_offpeak": "On for a car that follows its own charge program (it starts at the start of the off-peak hours). Off for a charger the planner drives: the charge then ends just before the end of the off-peak hours."
         },
         "description": "What the planner needs to know about the house. Every value can be changed later in the integration's options."
       }
@@ -81,6 +85,7 @@
           "battery_soc_entity": "Home battery charge",
           "car_soc_entity": "Car battery charge",
           "car_plugged_entity": "Car plugged in",
+          "car_charging_entity": "Car charging",
           "car_target_entity": "Car charge target",
           "house_energy_entity": "House consumption",
           "price_blue_offpeak_entity": "Price, blue off-peak",
@@ -98,6 +103,7 @@
           "battery_soc_entity": "State of charge of the home battery, in %.",
           "car_soc_entity": "State of charge of the car, in %.",
           "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
+          "car_charging_entity": "A binary sensor that is on while the car charges. With the car's level, it shows in the daily review when the car actually charged.",
           "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
           "house_energy_entity": "An energy meter of what the house uses (kWh, with long-term statistics), not the grid import. Its history replaces the peak-hour consumption setting.",
           "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
@@ -120,7 +126,8 @@
           "car_target_pct": "Car charge target",
           "dishwasher_minutes": "Dishwasher programme length",
           "dishwasher_solar_kwh": "Solar forecast for a daytime dishwasher run",
-          "car_min_kwh": "Minimum car charge"
+          "car_min_kwh": "Minimum car charge",
+          "car_starts_at_offpeak": "The car starts charging when the off-peak hours open"
         },
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
@@ -129,7 +136,8 @@
           "battery_min_gain_ct": "Per kWh given back by the battery, after its losses. Set it to what a cycle costs in wear: battery price divided by its guaranteed cycles and capacity.",
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
-          "car_min_kwh": "Below this, no charge is planned."
+          "car_min_kwh": "Below this, no charge is planned.",
+          "car_starts_at_offpeak": "On for a car that follows its own charge program (it starts at the start of the off-peak hours). Off for a charger the planner drives: the charge then ends just before the end of the off-peak hours."
         },
         "description": "What the planner needs to know about the house."
       }
@@ -272,6 +280,38 @@
           },
           "nights": {
             "name": "Nights reviewed"
+          }
+        }
+      },
+      "last_night_car": {
+        "name": "Last night's car charge",
+        "state_attributes": {
+          "day": {
+            "name": "Day"
+          },
+          "start": {
+            "name": "Start"
+          },
+          "end": {
+            "name": "End"
+          },
+          "level_start": {
+            "name": "Level at the start"
+          },
+          "level_end": {
+            "name": "Level at the end"
+          },
+          "planned_start": {
+            "name": "Planned start"
+          },
+          "planned_end": {
+            "name": "Planned end"
+          },
+          "planned_energy": {
+            "name": "Planned energy"
+          },
+          "start_offset": {
+            "name": "Start offset"
           }
         }
       },

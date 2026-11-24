@@ -35,6 +35,7 @@ _ENTITY_SELECTORS = {
     const.CONF_BATTERY_SOC: _SENSOR,
     const.CONF_CAR_SOC: _SENSOR,
     const.CONF_CAR_PLUGGED: _PLUG,
+    const.CONF_CAR_CHARGING: _PLUG,
     const.CONF_CAR_TARGET: _NUMBER,
     const.CONF_HOUSE_ENERGY: _ENERGY,
     **{conf: _NUMBER for conf in const.CONF_PRICES.values()},
@@ -82,6 +83,7 @@ def _settings_schema(values: dict[str, Any]) -> vol.Schema:
         const.CONF_CAR_CHARGE_KW: (d.car_charge_kw, _num(1, 22, 0.1, "kW")),
         const.CONF_CAR_TARGET_PCT: (d.car_target_pct, _num(10, 100, 1, "%")),
         const.CONF_CAR_MIN: (d.car_min_kwh, _num(0, 50, 0.5, "kWh")),
+        const.CONF_CAR_STARTS_AT_OFFPEAK: (d.car_starts_at_offpeak, selector.BooleanSelector()),
         const.CONF_DISHWASHER_MINUTES: (
             d.dishwasher_duration.total_seconds() / 60,
             _num(10, 600, 5, "min"),

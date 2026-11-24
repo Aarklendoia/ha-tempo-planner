@@ -12,6 +12,7 @@ CONF_SOLAR_PEAK = "solar_peak_entity"
 CONF_BATTERY_SOC = "battery_soc_entity"
 CONF_CAR_SOC = "car_soc_entity"
 CONF_CAR_PLUGGED = "car_plugged_entity"
+CONF_CAR_CHARGING = "car_charging_entity"
 CONF_CAR_TARGET = "car_target_entity"
 # Read from the recorder's statistics once a day, not watched.
 CONF_HOUSE_ENERGY = "house_energy_entity"
@@ -35,6 +36,7 @@ ENTITY_KEYS = (
     CONF_BATTERY_SOC,
     CONF_CAR_SOC,
     CONF_CAR_PLUGGED,
+    CONF_CAR_CHARGING,
     CONF_CAR_TARGET,
     CONF_HOUSE_ENERGY,
     *CONF_PRICES.values(),
@@ -55,5 +57,6 @@ CONF_CAR_CAPACITY = "car_capacity_kwh"
 CONF_CAR_CHARGE_KW = "car_charge_kw"
 CONF_CAR_TARGET_PCT = "car_target_pct"
 CONF_CAR_MIN = "car_min_kwh"
+CONF_CAR_STARTS_AT_OFFPEAK = "car_starts_at_offpeak"
 CONF_DISHWASHER_MINUTES = "dishwasher_minutes"
 CONF_DISHWASHER_SOLAR = "dishwasher_solar_kwh"

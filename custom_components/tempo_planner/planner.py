@@ -114,6 +114,9 @@ class Settings:
     # Below this, the car is not worth a charging session.
     car_min_kwh: float = 3.0
     car_margin: timedelta = timedelta(minutes=15)
+    # The car's own program starts charging as soon as the off-peak hours open;
+    # a charger driven by the planner can instead finish just before their end.
+    car_starts_at_offpeak: bool = True
 
     dishwasher_duration: timedelta = timedelta(hours=5, minutes=10)
     dishwasher_power_kw: float = 2.2
@@ -336,7 +339,9 @@ def _plan_car(plan: Plan, inputs: Inputs, settings: Settings) -> None:
         plan.reasons.append(Reason.CAR_UNKNOWN_SOC)
         return
     if inputs.car_plugged is False:
+        # Left unplugged (on white and red nights, say): nothing to plan.
         plan.reasons.append(Reason.CAR_NOT_PLUGGED)
+        return
     target = inputs.car_target_pct or settings.car_target_pct
     missing_kwh = (target - inputs.car_soc) / 100 * settings.car_capacity_kwh
     if missing_kwh <= 0:
@@ -349,15 +354,14 @@ def _plan_car(plan: Plan, inputs: Inputs, settings: Settings) -> None:
         return
     plan.car_energy_kwh = energy_kwh
     duration = timedelta(hours=plan.car_energy_kwh / settings.car_charge_kw)
-    # Finish just before the end of the off-peak hours, so the start does not
-    # pile up with everything that begins at 22:00.
-    end = plan.night_end - settings.car_margin
-    start = end - duration
-    if start < plan.night_start:
-        start = plan.night_start
-        end = start + duration
-        if end > plan.night_end:
-            plan.reasons.append(Reason.CAR_OVERFLOWS_OFFPEAK)
+    start = plan.night_start
+    if not settings.car_starts_at_offpeak:
+        # Finish just before the end of the off-peak hours, so the start does
+        # not pile up with everything that begins at 22:00.
+        start = max(plan.night_start, plan.night_end - settings.car_margin - duration)
+    end = start + duration
+    if end > plan.night_end:
+        plan.reasons.append(Reason.CAR_OVERFLOWS_OFFPEAK)
     plan.car = Slot(start, end, settings.car_charge_kw)
 
 

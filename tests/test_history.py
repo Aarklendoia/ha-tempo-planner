@@ -55,7 +55,11 @@ async def setup_planner(hass: HomeAssistant) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=const.DOMAIN,
         entry_id="planner",
-        data={**ENTITIES, const.CONF_HOUSE_ENERGY: "sensor.house_energy"},
+        data={
+            **ENTITIES,
+            const.CONF_HOUSE_ENERGY: "sensor.house_energy",
+            const.CONF_CAR_CHARGING: "binary_sensor.car_charging",
+        },
         options=SETTINGS,
         unique_id=const.DOMAIN,
     )
@@ -162,10 +166,20 @@ async def test_review_of_the_last_day(
     # 8 kWh forecast (no history yet), 3 from the sun: charge to 55 %.
     assert hass.states.get("sensor.tempo_planner_home_battery_target").state == "55"
 
-    # The night: the EcoFlow battery charges as well.
-    for day, hour, soc in ((23, 21, "10"), (24, 1, "60"), (24, 5, "58")):
-        await at(day, hour)
-        hass.states.async_set("sensor.battery_soc", soc)
+    # The night: the EcoFlow battery charges as well, and the car tops up from
+    # 22:00 to 22:42 on its own program.
+    for day, hour, minute, entity, value in (
+        (23, 21, 15, "sensor.battery_soc", "10"),
+        (23, 21, 30, "sensor.car_battery", "75"),
+        (23, 21, 30, "binary_sensor.car_charging", "off"),
+        (23, 22, 0, "binary_sensor.car_charging", "on"),
+        (23, 22, 42, "binary_sensor.car_charging", "off"),
+        (23, 22, 43, "sensor.car_battery", "80"),
+        (24, 1, 0, "sensor.battery_soc", "60"),
+        (24, 5, 0, "sensor.battery_soc", "58"),
+    ):
+        await at(day, hour, minute)
+        hass.states.async_set(entity, value)
         await async_wait_recording_done(hass)
 
     # The white day uses 16 kWh during peak hours; the review comes after midnight.
@@ -187,6 +201,14 @@ async def test_review_of_the_last_day(
     assert battery.attributes["level_max"] == 60.0
     assert battery.attributes["level_end"] == 58.0
     assert battery.attributes["agreement"] == 100
+
+    car = hass.states.get("sensor.tempo_planner_last_night_s_car_charge")
+    # 5 % of 87 kWh at 90 %.
+    assert float(car.state) == 4.83
+    assert car.attributes["start"] == "2026-11-23T22:00:00+01:00"
+    assert car.attributes["end"] == "2026-11-23T22:42:00+01:00"
+    assert car.attributes["planned_start"] == "2026-11-23T22:00:00+01:00"
+    assert car.attributes["start_offset"] == 0
 
     # Kept for the summaries after a restart.
     await at(25, 1)

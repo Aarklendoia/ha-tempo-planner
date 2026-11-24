@@ -24,8 +24,10 @@ and the solar forecast:
   threshold you set to what a cycle costs in wear (3 c/kWh by default). With
   the default prices, that means before every red day and on blue → white
   nights (about 4 c); not on white → white (about 2 c) or before a blue day.
-- **Car** — charge up to the target and finish just before the end of the
-  off-peak hours, rather than starting at 22:00 with everything else.
+- **Car** — charge up to the target. By default the car is expected to start
+  as soon as the off-peak hours open, as a car on its own charge program does;
+  for a charger the planner will drive, it can instead finish just before
+  their end. An unplugged car gets no slot.
 - **Dishwasher** — on a blue day with enough sun forecast, run it around the
   solar peak; otherwise start it at night, after the battery.
 
@@ -52,6 +54,7 @@ power you allow.
 | Dishwasher start / end | the dishwasher's slot (`mode`: `night` or `solar`) |
 | Last day's peak-hour consumption | measured on the last Tempo day over, kWh; attributes: `day`, `color`, the `forecast` frozen when its night started, the `error` (forecast − measured), the `mean_abs_error` over the last 14 days reviewed |
 | Last night's battery | the plan against the battery during the night before that day: `agreed_charge`, `agreed_idle`, `planner_only` or `battery_only` (a rise of 5 points or more counts as a charge); attributes: the levels at the start, highest and end, and the `agreement` rate over the last 14 nights |
+| Last night's car charge | grid energy the car took during the night before the last day reviewed, kWh (from its level and capacity); attributes: actual `start` and `end` (from the car charging entity), levels, planned start, end and energy, and the `start_offset` in minutes |
 | Night peak power | sum of the planned loads at their highest, kW |
 
 ## Installation
@@ -125,8 +128,11 @@ vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
   l'historique d'un compteur de consommation de la maison : moyenne des 14
   derniers jours de la couleur de demain (des jours les plus récents tant qu'il
   y en a moins de 3), ou à défaut tirée du réglage.
-- **Voiture** : charge jusqu'à l'objectif, en finissant juste avant la fin des
-  heures creuses plutôt qu'en démarrant à 22 h avec tout le reste.
+- **Voiture** : charge jusqu'à l'objectif. Par défaut, elle démarre dès
+  l'ouverture des heures creuses, comme une voiture qui suit son propre
+  programme ; pour une borne pilotée plus tard, elle peut finir juste avant la
+  fin. Débranchée, pas de créneau. Le bilan quotidien montre quand elle a
+  réellement chargé.
 - **Lave-vaisselle** : un jour bleu bien ensoleillé, autour du pic solaire ;
   sinon la nuit, après la batterie.
 

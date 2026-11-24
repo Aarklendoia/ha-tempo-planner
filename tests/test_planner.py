@@ -151,7 +151,12 @@ def test_unknown_colour_is_reported():
 def test_car_finishes_before_the_end_of_off_peak():
     plan = make_plan(
         Inputs(now=at(23, 16), tomorrow=Color.WHITE, car_soc=50, car_target_pct=80),
-        Settings(car_capacity_kwh=60, car_charge_kw=7.2, car_efficiency=0.9),
+        Settings(
+            car_capacity_kwh=60,
+            car_charge_kw=7.2,
+            car_efficiency=0.9,
+            car_starts_at_offpeak=False,
+        ),
     )
     # 30 % of 60 kWh = 18 kWh, 20 kWh from the grid, 2 h 47 at 7.2 kW.
     assert plan.car_energy_kwh == 20
@@ -236,8 +241,8 @@ def test_explanations():
     from custom_components.tempo_planner.reasons import explain
 
     reasons = [Reason.BATTERY_CHARGE, Reason.CAR_NOT_PLUGGED]
-    assert explain(reasons, "fr")[1] == "La voiture n'est pas branchée."
-    assert explain(reasons, "en-GB")[1] == "The car is not plugged in."
+    assert explain(reasons, "fr")[1] == "La voiture n'est pas branchée : pas de charge prévue."
+    assert explain(reasons, "en-GB")[1] == "The car is not plugged in: no charge planned."
     # Unknown language: English. Every reason has a text in every language.
     assert explain(list(Reason), "de") == explain(list(Reason), "en")
     assert len(explain(list(Reason), "fr")) == len(Reason)
@@ -322,3 +327,25 @@ def test_tempo_day_starts_at_the_end_of_off_peak():
     assert tempo_day(at(23, 5, 59), Settings()) == date(2026, 11, 22)
     assert tempo_day(at(23, 6), Settings()) == date(2026, 11, 23)
     assert tempo_day(at(23, 23), Settings()) == date(2026, 11, 23)
+
+
+def test_car_on_its_own_program_starts_at_the_start_of_off_peak():
+    plan = make_plan(
+        Inputs(now=at(23, 16), tomorrow=Color.WHITE, car_soc=75, car_target_pct=80),
+        Settings(car_capacity_kwh=87, car_charge_kw=7.4, car_min_kwh=3),
+    )
+    # 5 % of 87 kWh at 90 %: 4.83 kWh, from 22:00.
+    assert plan.car.start == at(23, 22)
+    assert plan.car.end == at(23, 22) + timedelta(hours=4.83 / 7.4)
+
+
+def test_unplugged_car_is_not_planned():
+    plan = make_plan(
+        Inputs(
+            now=at(23, 21), tomorrow=Color.WHITE, car_soc=60, car_target_pct=80, car_plugged=False
+        ),
+        Settings(),
+    )
+    assert plan.car is None
+    assert plan.car_energy_kwh == 0
+    assert Reason.CAR_NOT_PLUGGED in plan.reasons
