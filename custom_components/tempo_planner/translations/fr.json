@@ -5,21 +5,30 @@
         "title": "Tempo Planner",
         "data": {
           "tomorrow_color_entity": "Couleur Tempo de demain",
+          "today_color_entity": "Couleur Tempo du jour",
           "solar_tomorrow_entity": "Prévision solaire de demain",
           "solar_peak_entity": "Heure du pic solaire de demain",
           "battery_soc_entity": "Charge de la batterie domestique",
           "car_soc_entity": "Charge de la voiture",
           "car_plugged_entity": "Voiture branchée",
-          "car_target_entity": "Objectif de charge de la voiture"
+          "car_target_entity": "Objectif de charge de la voiture",
+          "price_blue_offpeak_entity": "Tarif bleu heures creuses",
+          "price_blue_peak_entity": "Tarif bleu heures pleines",
+          "price_white_offpeak_entity": "Tarif blanc heures creuses",
+          "price_white_peak_entity": "Tarif blanc heures pleines",
+          "price_red_offpeak_entity": "Tarif rouge heures creuses",
+          "price_red_peak_entity": "Tarif rouge heures pleines"
         },
         "data_description": {
           "tomorrow_color_entity": "La couleur du prochain jour Tempo (par exemple la prochaine couleur de l'intégration RTE Tempo).",
+          "today_color_entity": "La couleur du jour Tempo en cours (par exemple la couleur actuelle de l'intégration RTE Tempo). La nuit est facturée à son tarif heures creuses ; inconnue, elle compte comme blanc.",
           "solar_tomorrow_entity": "Énergie attendue demain, en kWh.",
           "solar_peak_entity": "Heure de la plus forte puissance solaire prévue demain.",
           "battery_soc_entity": "Niveau de charge de la batterie de la maison, en %.",
           "car_soc_entity": "Niveau de charge de la voiture, en %.",
           "car_plugged_entity": "Un capteur binaire, ou un état du branchement qui vaut « plugged » quand elle est branchée.",
-          "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé."
+          "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé.",
+          "price_red_peak_entity": "Tarifs en €/kWh. Sans entité, un tarif Tempo par défaut est utilisé (bleu 0,1356 / 0,1654, blanc 0,1536 / 0,1921, rouge 0,1611 / 0,73)."
         },
         "description": "Choisissez les entités que le planificateur lit. Seule la couleur de demain est obligatoire."
       },
@@ -33,7 +42,7 @@
           "battery_capacity_kwh": "Capacité de la batterie domestique",
           "battery_reserve_pct": "Réserve de la batterie domestique",
           "battery_charge_kw": "Puissance de charge de la batterie sur le réseau",
-          "battery_charge_on_blue": "Charger la batterie avant un jour bleu",
+          "battery_min_gain_ct": "Gain minimal pour charger la batterie sur le réseau",
           "car_capacity_kwh": "Capacité de la batterie de la voiture",
           "car_charge_kw": "Puissance de la borne",
           "car_target_pct": "Objectif de charge de la voiture",
@@ -44,7 +53,7 @@
         "data_description": {
           "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
           "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire.",
-          "battery_charge_on_blue": "Un jour bleu, le gain couvre à peine les pertes de la batterie.",
+          "battery_min_gain_ct": "Par kWh restitué par la batterie, après ses pertes. À régler sur ce que coûte un cycle en usure : prix de la batterie divisé par ses cycles garantis et sa capacité.",
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
           "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
           "car_min_kwh": "En dessous, aucune charge n'est prévue."
@@ -62,21 +71,30 @@
         "title": "Entités",
         "data": {
           "tomorrow_color_entity": "Couleur Tempo de demain",
+          "today_color_entity": "Couleur Tempo du jour",
           "solar_tomorrow_entity": "Prévision solaire de demain",
           "solar_peak_entity": "Heure du pic solaire de demain",
           "battery_soc_entity": "Charge de la batterie domestique",
           "car_soc_entity": "Charge de la voiture",
           "car_plugged_entity": "Voiture branchée",
-          "car_target_entity": "Objectif de charge de la voiture"
+          "car_target_entity": "Objectif de charge de la voiture",
+          "price_blue_offpeak_entity": "Tarif bleu heures creuses",
+          "price_blue_peak_entity": "Tarif bleu heures pleines",
+          "price_white_offpeak_entity": "Tarif blanc heures creuses",
+          "price_white_peak_entity": "Tarif blanc heures pleines",
+          "price_red_offpeak_entity": "Tarif rouge heures creuses",
+          "price_red_peak_entity": "Tarif rouge heures pleines"
         },
         "data_description": {
           "tomorrow_color_entity": "La couleur du prochain jour Tempo (par exemple la prochaine couleur de l'intégration RTE Tempo).",
+          "today_color_entity": "La couleur du jour Tempo en cours (par exemple la couleur actuelle de l'intégration RTE Tempo). La nuit est facturée à son tarif heures creuses ; inconnue, elle compte comme blanc.",
           "solar_tomorrow_entity": "Énergie attendue demain, en kWh.",
           "solar_peak_entity": "Heure de la plus forte puissance solaire prévue demain.",
           "battery_soc_entity": "Niveau de charge de la batterie de la maison, en %.",
           "car_soc_entity": "Niveau de charge de la voiture, en %.",
           "car_plugged_entity": "Un capteur binaire, ou un état du branchement qui vaut « plugged » quand elle est branchée.",
-          "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé."
+          "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé.",
+          "price_red_peak_entity": "Tarifs en €/kWh. Sans entité, un tarif Tempo par défaut est utilisé (bleu 0,1356 / 0,1654, blanc 0,1536 / 0,1921, rouge 0,1611 / 0,73)."
         }
       },
       "settings": {
@@ -89,7 +107,7 @@
           "battery_capacity_kwh": "Capacité de la batterie domestique",
           "battery_reserve_pct": "Réserve de la batterie domestique",
           "battery_charge_kw": "Puissance de charge de la batterie sur le réseau",
-          "battery_charge_on_blue": "Charger la batterie avant un jour bleu",
+          "battery_min_gain_ct": "Gain minimal pour charger la batterie sur le réseau",
           "car_capacity_kwh": "Capacité de la batterie de la voiture",
           "car_charge_kw": "Puissance de la borne",
           "car_target_pct": "Objectif de charge de la voiture",
@@ -100,7 +118,7 @@
         "data_description": {
           "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
           "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire.",
-          "battery_charge_on_blue": "Un jour bleu, le gain couvre à peine les pertes de la batterie.",
+          "battery_min_gain_ct": "Par kWh restitué par la batterie, après ses pertes. À régler sur ce que coûte un cycle en usure : prix de la batterie divisé par ses cycles garantis et sa capacité.",
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
           "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
           "car_min_kwh": "En dessous, aucune charge n'est prévue."
@@ -124,7 +142,18 @@
         "name": "Objectif de la batterie domestique"
       },
       "battery_grid_energy": {
-        "name": "Charge de la batterie sur le réseau"
+        "name": "Charge de la batterie sur le réseau",
+        "state_attributes": {
+          "gain_per_kwh": {
+            "name": "Gain par kWh"
+          },
+          "offpeak_price": {
+            "name": "Tarif heures creuses de la nuit"
+          },
+          "peak_price": {
+            "name": "Tarif heures pleines de demain"
+          }
+        }
       },
       "battery_charge_end": {
         "name": "Fin de charge de la batterie"

@@ -44,9 +44,10 @@ def settings_from(config: dict) -> Settings:
         battery_capacity_kwh=num(const.CONF_BATTERY_CAPACITY, default.battery_capacity_kwh),
         battery_reserve_pct=num(const.CONF_BATTERY_RESERVE, default.battery_reserve_pct),
         battery_charge_kw=num(const.CONF_BATTERY_CHARGE_KW, default.battery_charge_kw),
-        battery_charge_on_blue=bool(
-            config.get(const.CONF_BATTERY_ON_BLUE, default.battery_charge_on_blue)
-        ),
+        battery_min_gain_eur_kwh=num(
+            const.CONF_BATTERY_MIN_GAIN, default.battery_min_gain_eur_kwh * 100
+        )
+        / 100,
         peak_load_kwh=num(const.CONF_PEAK_LOAD, default.peak_load_kwh),
         car_capacity_kwh=num(const.CONF_CAR_CAPACITY, default.car_capacity_kwh),
         car_charge_kw=num(const.CONF_CAR_CHARGE_KW, default.car_charge_kw),
@@ -123,6 +124,12 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         return Inputs(
             now=dt_util.now(),
             tomorrow=parse_color(self._state(const.CONF_TOMORROW_COLOR)),
+            today=parse_color(self._state(const.CONF_TODAY_COLOR)),
+            prices={
+                key: price
+                for key, conf in const.CONF_PRICES.items()
+                if (price := self._number(conf)) is not None
+            },
             solar_tomorrow_kwh=self._number(const.CONF_SOLAR_TOMORROW),
             solar_peak_tomorrow=self._instant(const.CONF_SOLAR_PEAK),
             battery_soc=self._number(const.CONF_BATTERY_SOC),

@@ -8,7 +8,10 @@ _TEXTS: dict[str, dict[Reason, str]] = {
     "en": {
         Reason.COLOR_UNKNOWN: "Tomorrow's colour is not published yet: planned as a white day.",
         Reason.BATTERY_SOLAR_COVERS: "The sun should cover peak hours: no grid charge.",
-        Reason.BATTERY_BLUE_NO_GRID: "Blue day: the battery stays off the grid.",
+        Reason.BATTERY_NOT_WORTH: (
+            "Tomorrow's peak price does not beat tonight's off-peak price"
+            " by enough to pay for losses and wear: no grid charge."
+        ),
         Reason.BATTERY_ALREADY_FULL: "The battery already holds enough for peak hours.",
         Reason.BATTERY_CHARGE: "The battery charges in off-peak hours for tomorrow's peak hours.",
         Reason.BATTERY_UNKNOWN_SOC: "Battery level unknown.",
@@ -24,7 +27,10 @@ _TEXTS: dict[str, dict[Reason, str]] = {
     "fr": {
         Reason.COLOR_UNKNOWN: "Couleur de demain pas encore publiée : prévu comme un jour blanc.",
         Reason.BATTERY_SOLAR_COVERS: "Le soleil couvrira les heures pleines : pas de charge.",
-        Reason.BATTERY_BLUE_NO_GRID: "Jour bleu : la batterie ne charge pas sur le réseau.",
+        Reason.BATTERY_NOT_WORTH: (
+            "L'écart entre les heures creuses de cette nuit et les heures pleines"
+            " de demain ne paie pas les pertes et l'usure : pas de charge."
+        ),
         Reason.BATTERY_ALREADY_FULL: "La batterie a déjà de quoi passer les heures pleines.",
         Reason.BATTERY_CHARGE: "La batterie charge en heures creuses pour les heures pleines.",
         Reason.BATTERY_UNKNOWN_SOC: "Niveau de la batterie inconnu.",

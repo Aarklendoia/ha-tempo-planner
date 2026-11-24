@@ -26,12 +26,14 @@ _PLUG = selector.EntitySelector(selector.EntitySelectorConfig(domain=["binary_se
 
 _ENTITY_SELECTORS = {
     const.CONF_TOMORROW_COLOR: _SENSOR,
+    const.CONF_TODAY_COLOR: _SENSOR,
     const.CONF_SOLAR_TOMORROW: _SENSOR,
     const.CONF_SOLAR_PEAK: _SENSOR,
     const.CONF_BATTERY_SOC: _SENSOR,
     const.CONF_CAR_SOC: _SENSOR,
     const.CONF_CAR_PLUGGED: _PLUG,
     const.CONF_CAR_TARGET: _NUMBER,
+    **{conf: _NUMBER for conf in const.CONF_PRICES.values()},
 }
 
 
@@ -67,7 +69,10 @@ def _settings_schema(values: dict[str, Any]) -> vol.Schema:
         const.CONF_BATTERY_CAPACITY: (d.battery_capacity_kwh, _num(0, 100, 0.1, "kWh")),
         const.CONF_BATTERY_RESERVE: (d.battery_reserve_pct, _num(0, 100, 1, "%")),
         const.CONF_BATTERY_CHARGE_KW: (d.battery_charge_kw, _num(0.1, 22, 0.1, "kW")),
-        const.CONF_BATTERY_ON_BLUE: (d.battery_charge_on_blue, selector.BooleanSelector()),
+        const.CONF_BATTERY_MIN_GAIN: (
+            round(d.battery_min_gain_eur_kwh * 100, 2),
+            _num(0, 50, 0.1, "c€/kWh"),
+        ),
         const.CONF_CAR_CAPACITY: (d.car_capacity_kwh, _num(1, 200, 0.1, "kWh")),
         const.CONF_CAR_CHARGE_KW: (d.car_charge_kw, _num(1, 22, 0.1, "kW")),
         const.CONF_CAR_TARGET_PCT: (d.car_target_pct, _num(10, 100, 1, "%")),
