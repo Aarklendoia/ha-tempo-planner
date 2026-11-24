@@ -181,6 +181,18 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         value=lambda p: _end(p.dishwasher),
     ),
     PlanSensorDescription(
+        key="car_advised_target",
+        translation_key="car_advised_target",
+        native_unit_of_measurement=PERCENTAGE,
+        value=lambda p: p.car_advised_target_pct,
+        attributes=lambda p, language: {
+            "advice": str(p.car_advice) if p.car_advice else None,
+            "explanation": explain([p.car_advice], language)[0] if p.car_advice else None,
+            "trip": p.trip_departure.isoformat() if p.trip_departure else None,
+            "daily_energy": p.car_daily_kwh,
+        },
+    ),
+    PlanSensorDescription(
         key="last_day_peak_load",
         translation_key="last_day_peak_load",
         device_class=SensorDeviceClass.ENERGY,

@@ -31,6 +31,7 @@ from .planner import (
 from .review import (
     DayReview,
     Forecast,
+    car_daily_use,
     car_night,
     night_before,
     review_day,
@@ -88,6 +89,8 @@ def settings_from(config: dict) -> Settings:
         car_charge_kw=num(const.CONF_CAR_CHARGE_KW, default.car_charge_kw),
         car_target_pct=num(const.CONF_CAR_TARGET_PCT, default.car_target_pct),
         car_min_kwh=num(const.CONF_CAR_MIN, default.car_min_kwh),
+        car_reserve_pct=num(const.CONF_CAR_RESERVE, default.car_reserve_pct),
+        car_daily_kwh=num(const.CONF_CAR_DAILY, default.car_daily_kwh),
         car_starts_at_offpeak=bool(
             config.get(const.CONF_CAR_STARTS_AT_OFFPEAK, default.car_starts_at_offpeak)
         ),
@@ -400,6 +403,41 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         # A binary sensor, or a Renault charge state ("charge_in_progress").
         return [(at, value in (STATE_ON, "charge_in_progress")) for at, value in states]
 
+    async def _async_trip(self) -> date | None:
+        """Day of the next trip in the calendar, within the next few days."""
+        entity_id = self._config.get(const.CONF_TRIP_CALENDAR)
+        if not entity_id:
+            return None
+        keyword = (
+            self._config.get(const.CONF_TRIP_KEYWORD) or const.DEFAULT_TRIP_KEYWORD
+        ).casefold()
+        now = dt_util.now()
+        try:
+            response = await self.hass.services.async_call(
+                "calendar",
+                "get_events",
+                {
+                    "entity_id": entity_id,
+                    "start_date_time": now,
+                    "duration": {"days": const.TRIP_LOOKAHEAD_DAYS},
+                },
+                blocking=True,
+                return_response=True,
+            )
+        except Exception:  # noqa: BLE001 - no trip is a safe default
+            _LOGGER.warning("Cannot read the trips in %s", entity_id, exc_info=True)
+            return None
+        departures = []
+        for event in (response or {}).get(entity_id, {}).get("events", []):
+            if keyword not in str(event.get("summary", "")).casefold():
+                continue
+            start = str(event.get("start", ""))
+            when = dt_util.parse_datetime(start)
+            day = dt_util.as_local(when).date() if when else dt_util.parse_date(start)
+            if day is not None and day > now.date():
+                departures.append(day)
+        return min(departures, default=None)
+
     def read_inputs(self) -> Inputs:
         return Inputs(
             now=dt_util.now(),
@@ -422,7 +460,13 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         colors = await self._async_load_store()
         await self._async_load_hours()
         await self._async_review()
-        inputs = self.read_inputs()
+        inputs = replace(
+            self.read_inputs(),
+            car_daily_kwh=car_daily_use(
+                list(self._reviews.values()), self._settings.car_capacity_kwh
+            ),
+            trip_departure=await self._async_trip(),
+        )
         self._remember_today(inputs)
         peak_load: PeakLoad | None = None
         if self._hours:

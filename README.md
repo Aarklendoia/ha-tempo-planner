@@ -28,6 +28,15 @@ and the solar forecast:
   as soon as the off-peak hours open, as a car on its own charge program does;
   for a charger the planner will drive, it can instead finish just before
   their end. An unplugged car gets no slot.
+- **Car target advice** — on a blue night, the usual target; on a white or red
+  night, only what keeps a reserve until the next blue night (tomorrow night if
+  tomorrow is blue, otherwise Sunday night, always blue), from the energy the car
+  uses a day, learnt from the reviews. Before a trip (an event in a calendar
+  whose title contains "Voyage", adjustable): 100 % the night before, or
+  already tonight if tonight is blue and tomorrow night is not. The planner only
+  recommends: an automation can copy the target into the car or notify you. The
+  usual target is the planner's setting, not the car's, so that copying does not
+  feed back.
 - **Dishwasher** — on a blue day with enough sun forecast, run it around the
   solar peak; otherwise start it at night, after the battery.
 
@@ -52,6 +61,8 @@ power you allow.
 | Car charge energy | energy to take from the grid, kWh |
 | Car charge start / end | the car's slot |
 | Dishwasher start / end | the dishwasher's slot (`mode`: `night` or `solar`) |
+| Recommended car target | what the car should be charged to tonight, %; attributes: `advice`, its `explanation`, the next `trip` and the car's `daily_energy` |
+| Plug in the car tonight (binary) | on when tonight's recommendation is worth a charge (at least the car's minimum charge) |
 | Last day's peak-hour consumption | measured on the last Tempo day over, kWh; attributes: `day`, `color`, the `forecast` frozen when its night started, the `error` (forecast − measured), the `mean_abs_error` over the last 14 days reviewed |
 | Last night's battery | the plan against the battery during the night before that day: `agreed_charge`, `agreed_idle`, `planner_only` or `battery_only` (a rise of 5 points or more counts as a charge); attributes: the levels at the start, highest and end, and the `agreement` rate over the last 14 nights |
 | Last night's car charge | grid energy the car took during the night before the last day reviewed, kWh (from its level and capacity); attributes: actual `start` and `end` (from the car charging entity), levels, planned start, end and energy, and the `start_offset` in minutes |
@@ -133,6 +144,14 @@ vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
   programme ; pour une borne pilotée plus tard, elle peut finir juste avant la
   fin. Débranchée, pas de créneau. Le bilan quotidien montre quand elle a
   réellement chargé.
+- **Objectif de charge conseillé** : une nuit bleue, l'objectif habituel ; une
+  nuit blanche ou rouge, juste de quoi garder une réserve jusqu'à la prochaine
+  nuit bleue (demain soir si demain est bleu, sinon dimanche soir), d'après
+  l'énergie quotidienne de la voiture apprise par les bilans. Avant un voyage
+  (événement « Voyage » dans un calendrier) : 100 % la veille, ou dès ce soir si
+  ce soir est bleu et pas demain. Un capteur « Brancher la voiture ce soir »
+  l'accompagne. Le planificateur conseille seulement : une automatisation peut
+  recopier l'objectif dans la voiture ou vous prévenir.
 - **Lave-vaisselle** : un jour bleu bien ensoleillé, autour du pic solaire ;
   sinon la nuit, après la batterie.
 

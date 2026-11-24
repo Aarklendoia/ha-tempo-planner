@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 
 from .coordinator import TempoPlannerConfigEntry, TempoPlannerCoordinator
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: TempoPlannerConfigEntry) -> bool:

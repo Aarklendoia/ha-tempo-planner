@@ -12,6 +12,7 @@
           "car_soc_entity": "Charge de la voiture",
           "car_plugged_entity": "Voiture branchée",
           "car_charging_entity": "Voiture en charge",
+          "trip_calendar_entity": "Calendrier des voyages",
           "car_target_entity": "Objectif de charge de la voiture",
           "house_energy_entity": "Consommation de la maison",
           "price_blue_offpeak_entity": "Tarif bleu heures creuses",
@@ -30,6 +31,7 @@
           "car_soc_entity": "Niveau de charge de la voiture, en %.",
           "car_plugged_entity": "Un capteur binaire, ou un état du branchement qui vaut « plugged » quand elle est branchée.",
           "car_charging_entity": "Un capteur binaire actif pendant la charge de la voiture. Avec le niveau de la voiture, il montre dans le bilan quotidien quand elle a réellement chargé.",
+          "trip_calendar_entity": "Les événements dont le titre contient le mot-clé de voyage signalent un long trajet : la voiture est remplie la veille.",
           "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé.",
           "house_energy_entity": "Un compteur d'énergie de ce que consomme la maison (kWh, avec statistiques à long terme), pas le soutirage réseau. Son historique remplace le réglage de consommation en heures pleines.",
           "price_red_peak_entity": "Tarifs en €/kWh. Sans entité, un tarif Tempo par défaut est utilisé (bleu 0,1356 / 0,1654, blanc 0,1536 / 0,1921, rouge 0,1611 / 0,73)."
@@ -54,6 +56,9 @@
           "dishwasher_minutes": "Durée du programme du lave-vaisselle",
           "dishwasher_solar_kwh": "Prévision solaire pour un lavage en journée",
           "car_min_kwh": "Charge minimale de la voiture",
+          "car_reserve_pct": "Réserve de la voiture",
+          "car_daily_kwh": "Énergie de la voiture par jour",
+          "trip_keyword": "Mot-clé de voyage",
           "car_starts_at_offpeak": "La voiture commence à charger à l'ouverture des heures creuses"
         },
         "data_description": {
@@ -64,6 +69,9 @@
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
           "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
           "car_min_kwh": "En dessous, aucune charge n'est prévue.",
+          "car_reserve_pct": "Niveau toujours gardé les nuits blanches et rouges, pour l'imprévu.",
+          "car_daily_kwh": "Utilisée tant que les bilans quotidiens ne l'ont pas apprise à partir du niveau de la voiture.",
+          "trip_keyword": "Les événements du calendrier dont le titre le contient sont des voyages.",
           "car_starts_at_offpeak": "Activé pour une voiture qui suit son propre programme de charge (elle démarre au début des heures creuses). Désactivé pour une borne pilotée par le planificateur : la charge finit alors juste avant la fin des heures creuses."
         },
         "description": "Ce que le planificateur doit savoir de la maison. Tout se change plus tard dans les options de l'intégration."
@@ -86,6 +94,7 @@
           "car_soc_entity": "Charge de la voiture",
           "car_plugged_entity": "Voiture branchée",
           "car_charging_entity": "Voiture en charge",
+          "trip_calendar_entity": "Calendrier des voyages",
           "car_target_entity": "Objectif de charge de la voiture",
           "house_energy_entity": "Consommation de la maison",
           "price_blue_offpeak_entity": "Tarif bleu heures creuses",
@@ -104,6 +113,7 @@
           "car_soc_entity": "Niveau de charge de la voiture, en %.",
           "car_plugged_entity": "Un capteur binaire, ou un état du branchement qui vaut « plugged » quand elle est branchée.",
           "car_charging_entity": "Un capteur binaire actif pendant la charge de la voiture. Avec le niveau de la voiture, il montre dans le bilan quotidien quand elle a réellement chargé.",
+          "trip_calendar_entity": "Les événements dont le titre contient le mot-clé de voyage signalent un long trajet : la voiture est remplie la veille.",
           "car_target_entity": "L'objectif réglé dans la voiture, en %. Sans lui, celui des réglages est utilisé.",
           "house_energy_entity": "Un compteur d'énergie de ce que consomme la maison (kWh, avec statistiques à long terme), pas le soutirage réseau. Son historique remplace le réglage de consommation en heures pleines.",
           "price_red_peak_entity": "Tarifs en €/kWh. Sans entité, un tarif Tempo par défaut est utilisé (bleu 0,1356 / 0,1654, blanc 0,1536 / 0,1921, rouge 0,1611 / 0,73)."
@@ -127,6 +137,9 @@
           "dishwasher_minutes": "Durée du programme du lave-vaisselle",
           "dishwasher_solar_kwh": "Prévision solaire pour un lavage en journée",
           "car_min_kwh": "Charge minimale de la voiture",
+          "car_reserve_pct": "Réserve de la voiture",
+          "car_daily_kwh": "Énergie de la voiture par jour",
+          "trip_keyword": "Mot-clé de voyage",
           "car_starts_at_offpeak": "La voiture commence à charger à l'ouverture des heures creuses"
         },
         "data_description": {
@@ -137,6 +150,9 @@
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
           "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
           "car_min_kwh": "En dessous, aucune charge n'est prévue.",
+          "car_reserve_pct": "Niveau toujours gardé les nuits blanches et rouges, pour l'imprévu.",
+          "car_daily_kwh": "Utilisée tant que les bilans quotidiens ne l'ont pas apprise à partir du niveau de la voiture.",
+          "trip_keyword": "Les événements du calendrier dont le titre le contient sont des voyages.",
           "car_starts_at_offpeak": "Activé pour une voiture qui suit son propre programme de charge (elle démarre au début des heures creuses). Désactivé pour une borne pilotée par le planificateur : la charge finit alors juste avant la fin des heures creuses."
         },
         "description": "Ce que le planificateur doit savoir de la maison."
@@ -144,6 +160,11 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "plug_car_tonight": {
+        "name": "Brancher la voiture ce soir"
+      }
+    },
     "sensor": {
       "peak_load": {
         "name": "Consommation en heures pleines",
@@ -221,6 +242,23 @@
       },
       "dishwasher_end": {
         "name": "Fin du lave-vaisselle"
+      },
+      "car_advised_target": {
+        "name": "Objectif de charge conseillé",
+        "state_attributes": {
+          "advice": {
+            "name": "Conseil"
+          },
+          "explanation": {
+            "name": "Explication"
+          },
+          "trip": {
+            "name": "Voyage"
+          },
+          "daily_energy": {
+            "name": "Énergie par jour"
+          }
+        }
       },
       "last_day_peak_load": {
         "name": "Consommation en heures pleines de la veille",

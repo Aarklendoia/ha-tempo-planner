@@ -20,6 +20,17 @@ _TEXTS: dict[str, dict[Reason, str]] = {
         Reason.CAR_UNKNOWN_SOC: "Car level unknown.",
         Reason.CAR_NOT_PLUGGED: "The car is not plugged in: no charge planned.",
         Reason.CAR_OVERFLOWS_OFFPEAK: "The car cannot finish within off-peak hours.",
+        Reason.CAR_ADVICE_BLUE_NIGHT: "Blue night: charge the car to its usual target.",
+        Reason.CAR_ADVICE_COVERED: (
+            "White or red night: the car holds until the next blue night without charging."
+        ),
+        Reason.CAR_ADVICE_BRIDGE: (
+            "White or red night: charge the car just enough to reach the next blue night."
+        ),
+        Reason.CAR_ADVICE_TRIP: "Trip tomorrow: charge the car to 100 %.",
+        Reason.CAR_ADVICE_TRIP_EARLY: (
+            "Trip the day after tomorrow and tomorrow night is dearer: fill the car tonight."
+        ),
         Reason.DISHWASHER_SOLAR: "Sunny blue day: the dishwasher runs around the solar peak.",
         Reason.DISHWASHER_NIGHT: "The dishwasher runs at night, after the battery.",
         Reason.PEAK_OVER_LIMIT: "The planned loads exceed the available power.",
@@ -39,6 +50,17 @@ _TEXTS: dict[str, dict[Reason, str]] = {
         Reason.CAR_UNKNOWN_SOC: "Niveau de la voiture inconnu.",
         Reason.CAR_NOT_PLUGGED: "La voiture n'est pas branchée : pas de charge prévue.",
         Reason.CAR_OVERFLOWS_OFFPEAK: "La voiture ne peut pas finir en heures creuses.",
+        Reason.CAR_ADVICE_BLUE_NIGHT: "Nuit bleue : charger la voiture à son objectif habituel.",
+        Reason.CAR_ADVICE_COVERED: (
+            "Nuit blanche ou rouge : la voiture tient sans charge jusqu'à la prochaine nuit bleue."
+        ),
+        Reason.CAR_ADVICE_BRIDGE: (
+            "Nuit blanche ou rouge : charger juste de quoi tenir jusqu'à la prochaine nuit bleue."
+        ),
+        Reason.CAR_ADVICE_TRIP: "Voyage demain : charger la voiture à 100 %.",
+        Reason.CAR_ADVICE_TRIP_EARLY: (
+            "Voyage après-demain et la nuit de demain est plus chère : remplir dès ce soir."
+        ),
         Reason.DISHWASHER_SOLAR: "Jour bleu ensoleillé : lave-vaisselle autour du pic solaire.",
         Reason.DISHWASHER_NIGHT: "Lave-vaisselle la nuit, après la batterie.",
         Reason.PEAK_OVER_LIMIT: "Les charges prévues dépassent la puissance disponible.",

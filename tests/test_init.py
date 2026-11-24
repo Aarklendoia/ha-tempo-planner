@@ -38,6 +38,9 @@ SETTINGS = {
     const.CONF_CAR_TARGET_PCT: 60,
     const.CONF_CAR_MIN: 3,
     const.CONF_CAR_STARTS_AT_OFFPEAK: True,
+    const.CONF_CAR_RESERVE: 20,
+    const.CONF_CAR_DAILY: 8,
+    const.CONF_TRIP_KEYWORD: "Voyage",
     const.CONF_DISHWASHER_MINUTES: 310,
     const.CONF_DISHWASHER_SOLAR: 6,
 }
@@ -123,3 +126,42 @@ async def test_options_flow(hass: HomeAssistant, house) -> None:
     assert entry.options[const.CONF_CAR_TARGET] is None
     # 10 % of 87 kWh at 90 %: 9.67 kWh.
     assert hass.states.get("sensor.tempo_planner_car_charge_energy").state == "9.67"
+
+
+async def test_car_advice_and_trips(hass: HomeAssistant, house) -> None:
+    from homeassistant.core import ServiceCall, SupportsResponse
+
+    calls = []
+
+    async def get_events(call: ServiceCall) -> dict:
+        calls.append(call.data)
+        return {
+            "calendar.family": {
+                "events": [
+                    {"start": "2026-11-24T09:00:00+01:00", "summary": "Dentist"},
+                    {"start": "2026-11-25", "summary": "Voyage à Lyon"},
+                ]
+            }
+        }
+
+    hass.services.async_register(
+        "calendar", "get_events", get_events, supports_response=SupportsResponse.ONLY
+    )
+    entry = MockConfigEntry(
+        domain=const.DOMAIN,
+        data={**ENTITIES, const.CONF_TRIP_CALENDAR: "calendar.family"},
+        options=SETTINGS,
+        unique_id=const.DOMAIN,
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # Monday 23, blue tonight, white tomorrow, trip on Wednesday 25: fill tonight.
+    advice = hass.states.get("sensor.tempo_planner_recommended_car_target")
+    assert advice.state == "100"
+    assert advice.attributes["advice"] == "car_advice_trip_early"
+    assert advice.attributes["trip"] == "2026-11-25"
+    assert advice.attributes["explanation"].startswith("Trip the day after tomorrow")
+    assert hass.states.get("binary_sensor.tempo_planner_plug_in_the_car_tonight").state == "on"
+    assert calls[0]["entity_id"] == "calendar.family"

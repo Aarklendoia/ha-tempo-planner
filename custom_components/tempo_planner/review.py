@@ -322,3 +322,27 @@ def summarize(reviews: list[DayReview], days: int = SUMMARY_DAYS) -> Summary:
         agreement_pct=round(100 * agreed / len(outcomes)) if outcomes else None,
         nights=len(outcomes),
     )
+
+
+def car_daily_use(
+    reviews: list[DayReview], capacity_kwh: float, days: int = SUMMARY_DAYS, minimum: int = 3
+) -> float | None:
+    """Energy the car uses a day, from its level in the reviews.
+
+    A day's use is the level at the end of the night before it minus the level
+    at the start of the night after it, when both are known. None until
+    `minimum` such days are known.
+    """
+    by_day = {r.day: r.car for r in reviews if r.car is not None}
+    uses = []
+    for day in sorted(by_day, reverse=True):
+        morning = by_day[day].soc_end
+        evening = (after := by_day.get(day + timedelta(days=1))) and after.soc_start
+        if morning is None or evening is None or evening > morning:
+            continue
+        uses.append((morning - evening) / 100 * capacity_kwh)
+        if len(uses) == days:
+            break
+    if len(uses) < minimum:
+        return None
+    return round(sum(uses) / len(uses), 2)
