@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.4.0...v0.5.0) (2026-11-24)
+
+
+### Features
+
+* take the car's charging out of the house consumption history ([#21](https://github.com/Aarklendoia/ha-tempo-planner/issues/21)) ([a6dcdce](https://github.com/Aarklendoia/ha-tempo-planner/commit/a6dcdce7a921ac0e53feefa4066afea55c697746)), closes [#20](https://github.com/Aarklendoia/ha-tempo-planner/issues/20)
+
 ## [0.4.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.3.0...v0.4.0) (2026-11-24)
 
 
