@@ -287,3 +287,38 @@ def test_history_replaces_the_setting():
     assert plan.peak_load_kwh == 6
     assert plan.peak_load_days == 14
     assert plan.battery_target_pct == 65
+
+
+def test_peak_load_per_colour():
+    from datetime import date
+
+    from custom_components.tempo_planner.planner import peak_load_from_history
+
+    hours = [*hours_of(17, 1.0), *hours_of(18, 1.0), *hours_of(19, 1.0)]
+    hours += [*hours_of(20, 0.5), *hours_of(21, 0.5), *hours_of(22, 0.25)]
+    colors = {date(2026, 11, d): Color.WHITE for d in (17, 18, 19)}
+    colors |= {date(2026, 11, d): Color.BLUE for d in (20, 21, 22)}
+    s = Settings(peak_load_days=2, peak_load_min_color_days=2)
+
+    white = peak_load_from_history(hours, s, colors, Color.WHITE)
+    # The two most recent white days.
+    assert (white.kwh, white.days, white.color) == (16, 2, Color.WHITE)
+    blue = peak_load_from_history(hours, s, colors, Color.BLUE)
+    assert (blue.kwh, blue.days, blue.color) == (6, 2, Color.BLUE)
+    # Unknown is planned as white.
+    assert peak_load_from_history(hours, s, colors, Color.UNKNOWN).color is Color.WHITE
+    # No red day: the two most recent days of any colour.
+    red = peak_load_from_history(hours, s, colors, Color.RED)
+    assert (red.kwh, red.days, red.color) == (6, 2, None)
+    # Without colours, as before.
+    assert peak_load_from_history(hours, s).color is None
+
+
+def test_tempo_day_starts_at_the_end_of_off_peak():
+    from datetime import date
+
+    from custom_components.tempo_planner.planner import tempo_day
+
+    assert tempo_day(at(23, 5, 59), Settings()) == date(2026, 11, 22)
+    assert tempo_day(at(23, 6), Settings()) == date(2026, 11, 23)
+    assert tempo_day(at(23, 23), Settings()) == date(2026, 11, 23)

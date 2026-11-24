@@ -100,6 +100,8 @@ class Settings:
     peak_load_kwh: float = 11.5
     # Days of history averaged to learn the peak-hour consumption.
     peak_load_days: int = 14
+    # Fewer days of tomorrow's colour than this: average the recent days instead.
+    peak_load_min_color_days: int = 3
 
     car_capacity_kwh: float = 60.0
     car_charge_kw: float = 7.4
@@ -122,15 +124,28 @@ class PeakLoad:
 
     kwh: float
     days: int
+    # The colour whose days were averaged; None: the most recent days, any colour.
+    color: Color | None = None
+
+
+def tempo_day(now: datetime, settings: Settings) -> date:
+    """The Tempo day in progress: it starts at the end of the off-peak hours."""
+    if now.time() < settings.offpeak_end:
+        return now.date() - timedelta(days=1)
+    return now.date()
 
 
 def peak_load_from_history(
-    hours: list[tuple[datetime, float]], settings: Settings
+    hours: list[tuple[datetime, float]],
+    settings: Settings,
+    colors: dict[date, Color] | None = None,
+    color: Color | None = None,
 ) -> PeakLoad | None:
-    """Average peak-hour consumption of the days whose every peak hour is known.
+    """Average peak-hour consumption of past days whose every peak hour is known.
 
     `hours` holds the start of each hour, in local time, and the energy the house
-    used during it.
+    used during it. With the colour of past days, the most recent days of `color`
+    are averaged, when there are enough of them; otherwise the most recent days.
     """
     per_day: dict[date, list[float]] = defaultdict(list)
     for start, kwh in hours:
@@ -140,10 +155,22 @@ def peak_load_from_history(
         datetime.combine(date.min, settings.offpeak_start)
         - datetime.combine(date.min, settings.offpeak_end)
     ) // timedelta(hours=1)
-    totals = [sum(day) for day in per_day.values() if len(day) == peak_hours]
-    if not totals:
+    totals = {day: sum(v) for day, v in per_day.items() if len(v) == peak_hours}
+    recent = sorted(totals, reverse=True)
+    if not recent:
         return None
-    return PeakLoad(kwh=round(sum(totals) / len(totals), 2), days=len(totals))
+
+    if color is not None and colors:
+        wanted = Color.WHITE if color is Color.UNKNOWN else color
+        same = [d for d in recent if colors.get(d) is wanted][: settings.peak_load_days]
+        if len(same) >= settings.peak_load_min_color_days:
+            return _average(totals, same, wanted)
+    return _average(totals, recent[: settings.peak_load_days], None)
+
+
+def _average(totals: dict[date, float], days: list[date], color: Color | None) -> PeakLoad:
+    kwh = sum(totals[d] for d in days) / len(days)
+    return PeakLoad(kwh=round(kwh, 2), days=len(days), color=color)
 
 
 @dataclass(frozen=True)
@@ -190,6 +217,7 @@ class Plan:
     # of days of history behind it (None: the setting).
     peak_load_kwh: float = 0.0
     peak_load_days: int | None = None
+    peak_load_color: Color | None = None
     battery_target_pct: float | None = None
     battery_grid_kwh: float = 0.0
     battery: Slot | None = None
@@ -246,6 +274,7 @@ def _plan_battery(plan: Plan, inputs: Inputs, settings: Settings) -> None:
     if inputs.peak_load is not None:
         plan.peak_load_kwh = inputs.peak_load.kwh
         plan.peak_load_days = inputs.peak_load.days
+        plan.peak_load_color = inputs.peak_load.color
     else:
         plan.peak_load_kwh = settings.peak_load_kwh
     need_kwh = max(0.0, plan.peak_load_kwh - solar)

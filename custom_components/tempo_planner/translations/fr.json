@@ -56,7 +56,7 @@
         "data_description": {
           "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
           "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire. Utilisée sans entité de consommation de la maison, ou tant que son historique est vide.",
-          "peak_load_days": "Nombre de jours passés dont la moyenne donne la consommation en heures pleines.",
+          "peak_load_days": "Nombre de jours passés dont la moyenne donne la consommation en heures pleines : des jours de la couleur de demain s'il y en a au moins 3, sinon les plus récents.",
           "battery_min_gain_ct": "Par kWh restitué par la batterie, après ses pertes. À régler sur ce que coûte un cycle en usure : prix de la batterie divisé par ses cycles garantis et sa capacité.",
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
           "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
@@ -125,7 +125,7 @@
         "data_description": {
           "max_power_kw": "Ce que permet l'abonnement, moins ce que la maison garde pour elle.",
           "peak_load_kwh": "Énergie consommée entre la fin et le début des heures creuses, avant le solaire. Utilisée sans entité de consommation de la maison, ou tant que son historique est vide.",
-          "peak_load_days": "Nombre de jours passés dont la moyenne donne la consommation en heures pleines.",
+          "peak_load_days": "Nombre de jours passés dont la moyenne donne la consommation en heures pleines : des jours de la couleur de demain s'il y en a au moins 3, sinon les plus récents.",
           "battery_min_gain_ct": "Par kWh restitué par la batterie, après ses pertes. À régler sur ce que coûte un cycle en usure : prix de la batterie divisé par ses cycles garantis et sa capacité.",
           "car_target_pct": "Utilisé quand aucune entité d'objectif n'est choisie.",
           "dishwasher_solar_kwh": "Un jour bleu avec au moins cette prévision solaire, le lave-vaisselle tourne autour du pic solaire.",
@@ -149,6 +149,15 @@
           },
           "days": {
             "name": "Jours d'historique"
+          },
+          "color": {
+            "name": "Couleur",
+            "state": {
+              "blue": "Bleu",
+              "white": "Blanc",
+              "red": "Rouge",
+              "all": "Toutes couleurs"
+            }
           }
         }
       },

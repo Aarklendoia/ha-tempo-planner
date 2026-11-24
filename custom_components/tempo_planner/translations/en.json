@@ -56,7 +56,7 @@
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
           "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar. Used when no house consumption entity is chosen or its history is still empty.",
-          "peak_load_days": "How many past days are averaged to learn the peak-hour consumption.",
+          "peak_load_days": "How many past days are averaged to learn the peak-hour consumption: days of tomorrow's colour when at least 3 are known, otherwise the most recent days.",
           "battery_min_gain_ct": "Per kWh given back by the battery, after its losses. Set it to what a cycle costs in wear: battery price divided by its guaranteed cycles and capacity.",
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
@@ -125,7 +125,7 @@
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
           "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar. Used when no house consumption entity is chosen or its history is still empty.",
-          "peak_load_days": "How many past days are averaged to learn the peak-hour consumption.",
+          "peak_load_days": "How many past days are averaged to learn the peak-hour consumption: days of tomorrow's colour when at least 3 are known, otherwise the most recent days.",
           "battery_min_gain_ct": "Per kWh given back by the battery, after its losses. Set it to what a cycle costs in wear: battery price divided by its guaranteed cycles and capacity.",
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
@@ -149,6 +149,15 @@
           },
           "days": {
             "name": "Days of history"
+          },
+          "color": {
+            "name": "Colour",
+            "state": {
+              "blue": "Blue",
+              "white": "White",
+              "red": "Red",
+              "all": "All colours"
+            }
           }
         }
       },

@@ -67,6 +67,7 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         attributes=lambda p, _: {
             "source": "setting" if p.peak_load_days is None else "history",
             "days": p.peak_load_days,
+            "color": None if p.peak_load_days is None else str(p.peak_load_color or "all"),
         },
     ),
     PlanSensorDescription(
