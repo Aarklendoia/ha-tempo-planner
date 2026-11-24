@@ -38,6 +38,26 @@ def _peak_review(plan: Plan, _: str) -> dict[str, Any]:
     }
 
 
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value else None
+
+
+def _car_review(plan: Plan, _: str) -> dict[str, Any]:
+    review = plan.review
+    car = review.car if review else None
+    return {
+        "day": review.day.isoformat() if review else None,
+        "start": _iso(car.start) if car else None,
+        "end": _iso(car.end) if car else None,
+        "level_start": car.soc_start if car else None,
+        "level_end": car.soc_end if car else None,
+        "planned_start": _iso(review.car_planned_start) if review else None,
+        "planned_end": _iso(review.car_planned_end) if review else None,
+        "planned_energy": review.car_planned_kwh if review else None,
+        "start_offset": review.car_start_offset_min if review else None,
+    }
+
+
 def _battery_review(plan: Plan, _: str) -> dict[str, Any]:
     review, summary = plan.review, plan.summary
     return {
@@ -176,6 +196,15 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         options=[str(o) for o in BatteryOutcome],
         value=lambda p: str(o) if p.review and (o := p.review.battery_outcome) else None,
         attributes=_battery_review,
+    ),
+    PlanSensorDescription(
+        key="last_night_car",
+        translation_key="last_night_car",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=1,
+        value=lambda p: p.review.car.grid_kwh if p.review and p.review.car else None,
+        attributes=_car_review,
     ),
     PlanSensorDescription(
         key="night_peak",

@@ -37,6 +37,7 @@ SETTINGS = {
     const.CONF_CAR_CHARGE_KW: 7.4,
     const.CONF_CAR_TARGET_PCT: 60,
     const.CONF_CAR_MIN: 3,
+    const.CONF_CAR_STARTS_AT_OFFPEAK: True,
     const.CONF_DISHWASHER_MINUTES: 310,
     const.CONF_DISHWASHER_SOLAR: 6,
 }
@@ -77,8 +78,9 @@ async def test_sensors_follow_the_inputs(
     assert hass.states.get("sensor.tempo_planner_home_battery_charge_start").state == (
         "2026-11-23T21:00:00+00:00"
     )
-    assert hass.states.get("sensor.tempo_planner_car_charge_end").state == (
-        "2026-11-24T04:45:00+00:00"
+    # The car's own program starts at 22:00.
+    assert hass.states.get("sensor.tempo_planner_car_charge_start").state == (
+        "2026-11-23T21:00:00+00:00"
     )
 
     # Blue night before a white day: worth it with the default prices.

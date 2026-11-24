@@ -8,8 +8,11 @@ import pytest
 from custom_components.tempo_planner.planner import Color, Inputs, Settings, make_plan
 from custom_components.tempo_planner.review import (
     BatteryOutcome,
+    CarNight,
     DayReview,
     Forecast,
+    car_night,
+    charging_span,
     night_before,
     review_day,
     soc_during,
@@ -97,3 +100,43 @@ def test_forecast_from_a_plan_and_back():
     assert Forecast.from_dict(forecast.day, forecast.to_dict()) == forecast
     review = review_day(forecast.day, forecast, 9.0, (5, 60, 55), Color.WHITE)
     assert DayReview.from_dict(review.day, review.to_dict()) == review
+
+
+def test_charging_span():
+    start, end = at(22, 22), at(23, 6)
+    # The car's program: from 22:00 to 22:42.
+    samples = [(at(22, 18), False), (at(22, 22), True), (at(22, 22, 42), False)]
+    assert charging_span(samples, start, end) == (at(22, 22), at(22, 22, 42))
+    # Two sessions: first start, last stop.
+    samples += [(at(23, 3), True), (at(23, 3, 30), False)]
+    assert charging_span(samples, start, end) == (at(22, 22), at(23, 3, 30))
+    # Already charging at the start, still charging at the end.
+    assert charging_span([(at(22, 21), True)], start, end) == (start, end)
+    # Plugged in all night but never charging.
+    assert charging_span([(at(22, 18), False)], start, end) == (None, None)
+
+
+def test_car_night():
+    start, end = at(22, 22), at(23, 6)
+    night = car_night(
+        [(at(22, 22), True), (at(22, 22, 42), False)],
+        [(at(22, 18), 75.0), (at(22, 22, 43), 80.0)],
+        start,
+        end,
+        Settings(car_capacity_kwh=87, car_efficiency=0.9),
+    )
+    # 5 % of 87 kWh stored, 4.83 kWh from the grid.
+    assert night == CarNight(at(22, 22), at(22, 22, 42), 75.0, 80.0, 4.83)
+    assert car_night([], [], start, end, Settings()) is None
+
+
+def test_car_review_against_the_plan():
+    forecast = Forecast(
+        date(2026, 11, 23), Color.WHITE, 12.0, False, 5, at(22, 22), at(22, 22, 40), 4.5
+    )
+    car = CarNight(at(22, 22, 25), at(22, 22, 50), 77.0, 80.0, 2.9)
+    review = review_day(date(2026, 11, 23), forecast, None, (None, None, None), None, car)
+    assert review.car_start_offset_min == 25
+    assert review.car_planned_kwh == 4.5
+    assert DayReview.from_dict(review.day, review.to_dict()) == review
+    assert Forecast.from_dict(forecast.day, forecast.to_dict()) == forecast

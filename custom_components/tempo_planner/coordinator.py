@@ -28,7 +28,15 @@ from .planner import (
     peak_totals,
     tempo_day,
 )
-from .review import DayReview, Forecast, night_before, review_day, soc_during, summarize
+from .review import (
+    DayReview,
+    Forecast,
+    car_night,
+    night_before,
+    review_day,
+    soc_during,
+    summarize,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +45,8 @@ _LOGGER = logging.getLogger(__name__)
 HISTORY_WINDOW = timedelta(days=120)
 # Colours of past Tempo days and reviews kept in the store.
 COLORS_KEPT = timedelta(days=400)
+# History read before a night, so that its first change is a change.
+HISTORY_LEAD = timedelta(hours=1)
 # Forecasts waiting for their review.
 FORECASTS_KEPT = timedelta(days=30)
 STORAGE_VERSION = 1
@@ -78,6 +88,9 @@ def settings_from(config: dict) -> Settings:
         car_charge_kw=num(const.CONF_CAR_CHARGE_KW, default.car_charge_kw),
         car_target_pct=num(const.CONF_CAR_TARGET_PCT, default.car_target_pct),
         car_min_kwh=num(const.CONF_CAR_MIN, default.car_min_kwh),
+        car_starts_at_offpeak=bool(
+            config.get(const.CONF_CAR_STARTS_AT_OFFPEAK, default.car_starts_at_offpeak)
+        ),
         dishwasher_duration=timedelta(
             minutes=num(
                 const.CONF_DISHWASHER_MINUTES,
@@ -311,12 +324,27 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         totals = peak_totals(self._hours, self._settings)
         for day in sorted(days):
             start, end = night_before(day, self._settings, now.tzinfo)
+            # From an hour before: a change right at the start (the car's program
+            # starts at 22:00 sharp) would otherwise be read as the start state.
+            since = start - HISTORY_LEAD
+            car = car_night(
+                self._charging(await self._async_history(const.CONF_CAR_CHARGING, since, end)),
+                self._levels(await self._async_history(const.CONF_CAR_SOC, since, end)),
+                start,
+                end,
+                self._settings,
+            )
             review = review_day(
                 day,
                 self._forecasts.get(day),
                 totals.get(day),
-                soc_during(await self._async_soc_history(start, end), start, end),
+                soc_during(
+                    self._levels(await self._async_history(const.CONF_BATTERY_SOC, since, end)),
+                    start,
+                    end,
+                ),
                 (self._colors or {}).get(day),
+                car,
             )
             if review is not None:
                 self._reviews[day] = review
@@ -325,11 +353,11 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         self._reviewed_on = now.date()
         self._save()
 
-    async def _async_soc_history(
-        self, start: datetime, end: datetime
-    ) -> list[tuple[datetime, float]]:
-        """Battery levels recorded during a night, the one before it included."""
-        entity_id = self._config.get(const.CONF_BATTERY_SOC)
+    async def _async_history(
+        self, key: str, start: datetime, end: datetime
+    ) -> list[tuple[datetime, str]]:
+        """States of an input recorded during a night, the one before it included."""
+        entity_id = self._config.get(key)
         if not entity_id or not self._recorder_ready():
             return []
 
@@ -348,16 +376,29 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
                 False,  # minimal_response
                 True,  # no_attributes
             )
-        except Exception:  # noqa: BLE001 - a review without the battery is still useful
+        except Exception:  # noqa: BLE001 - a partial review is still useful
             _LOGGER.exception("Cannot read the history of %s", entity_id)
             return []
-        samples = []
-        for state in found.get(entity_id, []):
+        return sorted(
+            (dt_util.as_local(state.last_changed), state.state)
+            for state in found.get(entity_id, [])
+            if state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE)
+        )
+
+    @staticmethod
+    def _levels(states: list[tuple[datetime, str]]) -> list[tuple[datetime, float]]:
+        levels = []
+        for at, value in states:
             try:
-                samples.append((state.last_changed, float(state.state)))
+                levels.append((at, float(value)))
             except ValueError:
                 continue
-        return sorted(samples)
+        return levels
+
+    @staticmethod
+    def _charging(states: list[tuple[datetime, str]]) -> list[tuple[datetime, bool]]:
+        # A binary sensor, or a Renault charge state ("charge_in_progress").
+        return [(at, value in (STATE_ON, "charge_in_progress")) for at, value in states]
 
     def read_inputs(self) -> Inputs:
         return Inputs(
