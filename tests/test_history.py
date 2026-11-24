@@ -144,3 +144,51 @@ async def test_colours_recorded_before_the_setup(
     await later(hass, freezer)
     colors = hass_storage["tempo_planner.planner"]["data"]["colors"]
     assert colors == {"2026-11-21": "red", "2026-11-22": "white", "2026-11-23": "blue"}
+
+
+async def test_review_of_the_last_day(
+    recorder_mock, hass: HomeAssistant, house, hass_storage, freezer: FrozenDateTimeFactory
+) -> None:
+    async def at(day: int, hour: int, minute: int = 0) -> None:
+        freezer.move_to(datetime(2026, 11, day, hour, minute, tzinfo=PARIS))
+        # The coordinator's 15-minute timer runs on the loop's clock, which the
+        # freezer does not move: fire it explicitly.
+        async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=16))
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+    # The afternoon before (the house fixture): a white day tomorrow, the battery
+    # at 20 %.
+    await setup_planner(hass)
+    # 8 kWh forecast (no history yet), 3 from the sun: charge to 55 %.
+    assert hass.states.get("sensor.tempo_planner_home_battery_target").state == "55"
+
+    # The night: the EcoFlow battery charges as well.
+    for day, hour, soc in ((23, 21, "10"), (24, 1, "60"), (24, 5, "58")):
+        await at(day, hour)
+        hass.states.async_set("sensor.battery_soc", soc)
+        await async_wait_recording_done(hass)
+
+    # The white day uses 16 kWh during peak hours; the review comes after midnight.
+    await at(24, 23)
+    import_hours(hass, {24: 1.0})
+    await async_wait_recording_done(hass)
+    await at(25, 0, 30)
+
+    last_day = hass.states.get("sensor.tempo_planner_last_day_s_peak_hour_consumption")
+    assert float(last_day.state) == 16.0
+    assert last_day.attributes["day"] == "2026-11-24"
+    assert last_day.attributes["forecast"] == 8.0
+    assert last_day.attributes["error"] == -8.0
+    assert last_day.attributes["mean_abs_error"] == 8.0
+
+    battery = hass.states.get("sensor.tempo_planner_last_night_s_battery")
+    assert battery.state == "agreed_charge"
+    assert battery.attributes["level_start"] == 10.0
+    assert battery.attributes["level_max"] == 60.0
+    assert battery.attributes["level_end"] == 58.0
+    assert battery.attributes["agreement"] == 100
+
+    # Kept for the summaries after a restart.
+    await at(25, 1)
+    reviews = hass_storage["tempo_planner.planner"]["data"]["reviews"]
+    assert reviews["2026-11-24"]["actual_kwh"] == 16.0

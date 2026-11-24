@@ -29,6 +29,12 @@ and the solar forecast:
 - **Dishwasher** — on a blue day with enough sun forecast, run it around the
   solar peak; otherwise start it at night, after the battery.
 
+Each day it also reviews the day before against what actually happened: the
+peak-hour consumption measured by the house meter, and whether the battery
+charged during the night (from the recorder's history of its level). Run it
+next to the EcoFlow AI mode for a while: if both agree night after night, the
+planner can be trusted with more.
+
 It also estimates the night's peak power and flags a plan that goes over the
 power you allow.
 
@@ -44,6 +50,8 @@ power you allow.
 | Car charge energy | energy to take from the grid, kWh |
 | Car charge start / end | the car's slot |
 | Dishwasher start / end | the dishwasher's slot (`mode`: `night` or `solar`) |
+| Last day's peak-hour consumption | measured on the last Tempo day over, kWh; attributes: `day`, `color`, the `forecast` frozen when its night started, the `error` (forecast − measured), the `mean_abs_error` over the last 14 days reviewed |
+| Last night's battery | the plan against the battery during the night before that day: `agreed_charge`, `agreed_idle`, `planner_only` or `battery_only` (a rise of 5 points or more counts as a charge); attributes: the levels at the start, highest and end, and the `agreement` rate over the last 14 nights |
 | Night peak power | sum of the planned loads at their highest, kW |
 
 ## Installation
@@ -121,6 +129,11 @@ vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
   heures creuses plutôt qu'en démarrant à 22 h avec tout le reste.
 - **Lave-vaisselle** : un jour bleu bien ensoleillé, autour du pic solaire ;
   sinon la nuit, après la batterie.
+
+Chaque jour, elle compare aussi la veille à ce qui s'est réellement passé : la
+consommation mesurée en heures pleines face à la prévision, et la charge ou non
+de la batterie pendant la nuit face au plan. De quoi vérifier qu'elle prend les
+mêmes décisions que le mode IA d'EcoFlow avant de lui confier quoi que ce soit.
 
 Installation par HACS (dépôt personnalisé ci-dessus), puis *Paramètres →
 Appareils et services → Ajouter une intégration → Tempo Planner*. Seule la

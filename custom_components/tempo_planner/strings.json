@@ -214,6 +214,67 @@
       "dishwasher_end": {
         "name": "Dishwasher end"
       },
+      "last_day_peak_load": {
+        "name": "Last day's peak-hour consumption",
+        "state_attributes": {
+          "day": {
+            "name": "Day"
+          },
+          "color": {
+            "name": "Colour",
+            "state": {
+              "blue": "Blue",
+              "white": "White",
+              "red": "Red",
+              "unknown": "Unknown"
+            }
+          },
+          "forecast": {
+            "name": "Forecast"
+          },
+          "error": {
+            "name": "Forecast error"
+          },
+          "mean_abs_error": {
+            "name": "Mean error"
+          },
+          "days": {
+            "name": "Days reviewed"
+          }
+        }
+      },
+      "last_night_battery": {
+        "name": "Last night's battery",
+        "state": {
+          "agreed_charge": "Both charged",
+          "agreed_idle": "Neither charged",
+          "planner_only": "Planned, not charged",
+          "battery_only": "Charged, not planned"
+        },
+        "state_attributes": {
+          "day": {
+            "name": "Day"
+          },
+          "planned_charge": {
+            "name": "Charge planned"
+          },
+          "level_start": {
+            "name": "Level at the start"
+          },
+          "level_max": {
+            "name": "Highest level"
+          },
+          "level_end": {
+            "name": "Level at the end"
+          },
+          "agreement": {
+            "name": "Agreement"
+          },
+          "nights": {
+            "name": "Nights reviewed"
+          }
+        }
+      },
       "night_peak": {
         "name": "Night peak power"
       },

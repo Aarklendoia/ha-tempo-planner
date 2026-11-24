@@ -214,6 +214,67 @@
       "dishwasher_end": {
         "name": "Fin du lave-vaisselle"
       },
+      "last_day_peak_load": {
+        "name": "Consommation en heures pleines de la veille",
+        "state_attributes": {
+          "day": {
+            "name": "Jour"
+          },
+          "color": {
+            "name": "Couleur",
+            "state": {
+              "blue": "Bleu",
+              "white": "Blanc",
+              "red": "Rouge",
+              "unknown": "Inconnue"
+            }
+          },
+          "forecast": {
+            "name": "Prévision"
+          },
+          "error": {
+            "name": "Écart de prévision"
+          },
+          "mean_abs_error": {
+            "name": "Écart moyen"
+          },
+          "days": {
+            "name": "Jours examinés"
+          }
+        }
+      },
+      "last_night_battery": {
+        "name": "Batterie la nuit dernière",
+        "state": {
+          "agreed_charge": "Charge des deux côtés",
+          "agreed_idle": "Pas de charge des deux côtés",
+          "planner_only": "Charge prévue, non faite",
+          "battery_only": "Charge faite, non prévue"
+        },
+        "state_attributes": {
+          "day": {
+            "name": "Jour"
+          },
+          "planned_charge": {
+            "name": "Charge prévue"
+          },
+          "level_start": {
+            "name": "Niveau au début"
+          },
+          "level_max": {
+            "name": "Niveau le plus haut"
+          },
+          "level_end": {
+            "name": "Niveau à la fin"
+          },
+          "agreement": {
+            "name": "Accord"
+          },
+          "nights": {
+            "name": "Nuits examinées"
+          }
+        }
+      },
       "night_peak": {
         "name": "Pointe de la nuit"
       },
