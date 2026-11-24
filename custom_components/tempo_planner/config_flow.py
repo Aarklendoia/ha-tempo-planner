@@ -77,6 +77,8 @@ def _settings_schema(values: dict[str, Any]) -> vol.Schema:
         const.CONF_BATTERY_CAPACITY: (d.battery_capacity_kwh, _num(0, 100, 0.1, "kWh")),
         const.CONF_BATTERY_RESERVE: (d.battery_reserve_pct, _num(0, 100, 1, "%")),
         const.CONF_BATTERY_CHARGE_KW: (d.battery_charge_kw, _num(0.1, 22, 0.1, "kW")),
+        const.CONF_INVERTER_KW: (d.inverter_kw, _num(0.5, 30, 0.1, "kW")),
+        const.CONF_RESALE: (round(d.resale_eur_kwh * 100, 2), _num(0, 50, 0.1, "c€/kWh")),
         const.CONF_BATTERY_MIN_GAIN: (
             round(d.battery_min_gain_eur_kwh * 100, 2),
             _num(0, 50, 0.1, "c€/kWh"),

@@ -63,6 +63,9 @@ CONF_CAR_STARTS_AT_OFFPEAK = "car_starts_at_offpeak"
 CONF_CAR_RESERVE = "car_reserve_pct"
 CONF_CAR_DAILY = "car_daily_kwh"
 CONF_TRIP_KEYWORD = "trip_keyword"
+CONF_INVERTER_KW = "inverter_kw"
+# In euro cents per kWh in the options.
+CONF_RESALE = "resale_ct"
 DEFAULT_TRIP_KEYWORD = "Voyage"
 # Calendar events read ahead for trips.
 TRIP_LOOKAHEAD_DAYS = 3

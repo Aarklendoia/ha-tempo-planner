@@ -32,6 +32,8 @@ SETTINGS = {
     const.CONF_BATTERY_CAPACITY: 10,
     const.CONF_BATTERY_RESERVE: 5,
     const.CONF_BATTERY_CHARGE_KW: 3,
+    const.CONF_INVERTER_KW: 6,
+    const.CONF_RESALE: 4,
     const.CONF_BATTERY_MIN_GAIN: 3,
     const.CONF_CAR_CAPACITY: 87,
     const.CONF_CAR_CHARGE_KW: 7.4,

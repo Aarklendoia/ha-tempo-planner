@@ -193,6 +193,20 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         },
     ),
     PlanSensorDescription(
+        key="solar_car",
+        translation_key="solar_car",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=1,
+        value=lambda p: p.solar.car_kwh if p.solar else None,
+        attributes=lambda p, _: {
+            "start": _iso(p.solar.start) if p.solar else None,
+            "end": _iso(p.solar.end) if p.solar else None,
+            "sold_energy": p.solar.sold_kwh if p.solar else None,
+            "min_share": round(p.solar.min_share * 100) if p.solar else None,
+        },
+    ),
+    PlanSensorDescription(
         key="last_day_peak_load",
         translation_key="last_day_peak_load",
         device_class=SensorDeviceClass.ENERGY,

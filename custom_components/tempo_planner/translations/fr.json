@@ -49,6 +49,8 @@
           "battery_capacity_kwh": "Capacité de la batterie domestique",
           "battery_reserve_pct": "Réserve de la batterie domestique",
           "battery_charge_kw": "Puissance de charge de la batterie sur le réseau",
+          "inverter_kw": "Puissance de l'onduleur",
+          "resale_ct": "Prix de revente",
           "battery_min_gain_ct": "Gain minimal pour charger la batterie sur le réseau",
           "car_capacity_kwh": "Capacité de la batterie de la voiture",
           "car_charge_kw": "Puissance de la borne",
@@ -72,7 +74,9 @@
           "car_reserve_pct": "Niveau toujours gardé les nuits blanches et rouges, pour l'imprévu.",
           "car_daily_kwh": "Utilisée tant que les bilans quotidiens ne l'ont pas apprise à partir du niveau de la voiture.",
           "trip_keyword": "Les événements du calendrier dont le titre le contient sont des voyages.",
-          "car_starts_at_offpeak": "Activé pour une voiture qui suit son propre programme de charge (elle démarre au début des heures creuses). Désactivé pour une borne pilotée par le planificateur : la charge finit alors juste avant la fin des heures creuses."
+          "car_starts_at_offpeak": "Activé pour une voiture qui suit son propre programme de charge (elle démarre au début des heures creuses). Désactivé pour une borne pilotée par le planificateur : la charge finit alors juste avant la fin des heures creuses.",
+          "inverter_kw": "Le solaire et la batterie passent par l'onduleur hybride : ensemble, ils ne fournissent jamais plus.",
+          "resale_ct": "Ce que le réseau paie pour l'énergie vendue."
         },
         "description": "Ce que le planificateur doit savoir de la maison. Tout se change plus tard dans les options de l'intégration."
       }
@@ -130,6 +134,8 @@
           "battery_capacity_kwh": "Capacité de la batterie domestique",
           "battery_reserve_pct": "Réserve de la batterie domestique",
           "battery_charge_kw": "Puissance de charge de la batterie sur le réseau",
+          "inverter_kw": "Puissance de l'onduleur",
+          "resale_ct": "Prix de revente",
           "battery_min_gain_ct": "Gain minimal pour charger la batterie sur le réseau",
           "car_capacity_kwh": "Capacité de la batterie de la voiture",
           "car_charge_kw": "Puissance de la borne",
@@ -153,7 +159,9 @@
           "car_reserve_pct": "Niveau toujours gardé les nuits blanches et rouges, pour l'imprévu.",
           "car_daily_kwh": "Utilisée tant que les bilans quotidiens ne l'ont pas apprise à partir du niveau de la voiture.",
           "trip_keyword": "Les événements du calendrier dont le titre le contient sont des voyages.",
-          "car_starts_at_offpeak": "Activé pour une voiture qui suit son propre programme de charge (elle démarre au début des heures creuses). Désactivé pour une borne pilotée par le planificateur : la charge finit alors juste avant la fin des heures creuses."
+          "car_starts_at_offpeak": "Activé pour une voiture qui suit son propre programme de charge (elle démarre au début des heures creuses). Désactivé pour une borne pilotée par le planificateur : la charge finit alors juste avant la fin des heures creuses.",
+          "inverter_kw": "Le solaire et la batterie passent par l'onduleur hybride : ensemble, ils ne fournissent jamais plus.",
+          "resale_ct": "Ce que le réseau paie pour l'énergie vendue."
         },
         "description": "Ce que le planificateur doit savoir de la maison."
       }
@@ -257,6 +265,23 @@
           },
           "daily_energy": {
             "name": "Énergie par jour"
+          }
+        }
+      },
+      "solar_car": {
+        "name": "Recharge solaire de la voiture demain",
+        "state_attributes": {
+          "start": {
+            "name": "Début"
+          },
+          "end": {
+            "name": "Fin"
+          },
+          "sold_energy": {
+            "name": "Énergie vendue sans la voiture"
+          },
+          "min_share": {
+            "name": "Part minimale de surplus"
           }
         }
       },
