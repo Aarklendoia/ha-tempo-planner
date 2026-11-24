@@ -34,6 +34,24 @@ _COLOR_NAMES = {
 }
 
 
+# EDF Tempo prices in EUR/kWh, used when no price entity is chosen.
+DEFAULT_PRICES: dict[str, float] = {
+    "blue_offpeak": 0.1356,
+    "blue_peak": 0.1654,
+    "white_offpeak": 0.1536,
+    "white_peak": 0.1921,
+    "red_offpeak": 0.1611,
+    "red_peak": 0.7300,
+}
+
+
+def price_key(color: Color, offpeak: bool) -> str:
+    """Key of a price in DEFAULT_PRICES; an unknown colour is priced as white."""
+    if color is Color.UNKNOWN:
+        color = Color.WHITE
+    return f"{color}_{'offpeak' if offpeak else 'peak'}"
+
+
 def parse_color(value: str | None) -> Color:
     """Read a colour as the Tempo integrations write it (French or English)."""
     if not value:
@@ -46,7 +64,7 @@ class Reason(StrEnum):
 
     COLOR_UNKNOWN = "color_unknown"
     BATTERY_SOLAR_COVERS = "battery_solar_covers"
-    BATTERY_BLUE_NO_GRID = "battery_blue_no_grid"
+    BATTERY_NOT_WORTH = "battery_not_worth"
     BATTERY_ALREADY_FULL = "battery_already_full"
     BATTERY_CHARGE = "battery_charge"
     BATTERY_UNKNOWN_SOC = "battery_unknown_soc"
@@ -73,9 +91,11 @@ class Settings:
     battery_reserve_pct: float = 5.0
     battery_charge_kw: float = 3.0
     battery_efficiency: float = 0.9
-    battery_charge_on_blue: bool = False
+    # A grid charge must save at least this much per kWh given back by the
+    # battery, after its losses: what a cycle costs in wear.
+    battery_min_gain_eur_kwh: float = 0.03
     # House consumption between 06:00 and 22:00, before solar.
-    peak_load_kwh: float = 8.0
+    peak_load_kwh: float = 11.5
 
     car_capacity_kwh: float = 60.0
     car_charge_kw: float = 7.4
@@ -98,6 +118,10 @@ class Inputs:
 
     now: datetime
     tomorrow: Color
+    # The Tempo day the next night belongs to: its off-peak price pays the charge.
+    today: Color = Color.UNKNOWN
+    # Prices read from entities, keyed like DEFAULT_PRICES; missing ones use the defaults.
+    prices: dict[str, float] = field(default_factory=dict)
     solar_tomorrow_kwh: float | None = None
     solar_peak_tomorrow: datetime | None = None
     battery_soc: float | None = None
@@ -129,6 +153,10 @@ class Plan:
     battery_target_pct: float | None = None
     battery_grid_kwh: float = 0.0
     battery: Slot | None = None
+    # Saving per kWh given back by the battery tomorrow, after its losses.
+    battery_gain_eur_kwh: float | None = None
+    offpeak_price: float | None = None
+    peak_price: float | None = None
     car_energy_kwh: float = 0.0
     car: Slot | None = None
     dishwasher: Slot | None = None
@@ -167,17 +195,28 @@ def make_plan(inputs: Inputs, settings: Settings) -> Plan:
     return plan
 
 
+def _price(inputs: Inputs, color: Color, offpeak: bool) -> float:
+    key = price_key(color, offpeak)
+    return inputs.prices.get(key, DEFAULT_PRICES[key])
+
+
 def _plan_battery(plan: Plan, inputs: Inputs, settings: Settings) -> None:
     capacity = settings.battery_capacity_kwh
     solar = inputs.solar_tomorrow_kwh or 0.0
     need_kwh = max(0.0, settings.peak_load_kwh - solar)
 
+    # The night is billed at today's off-peak price and replaces tomorrow's peak hours.
+    plan.offpeak_price = _price(inputs, inputs.today, offpeak=True)
+    plan.peak_price = _price(inputs, plan.tomorrow, offpeak=False)
+    gain = plan.peak_price - plan.offpeak_price / settings.battery_efficiency
+    plan.battery_gain_eur_kwh = round(gain, 4)
+
     if need_kwh == 0:
         target = settings.battery_reserve_pct
         plan.reasons.append(Reason.BATTERY_SOLAR_COVERS)
-    elif plan.tomorrow is Color.BLUE and not settings.battery_charge_on_blue:
+    elif gain < settings.battery_min_gain_eur_kwh:
         target = settings.battery_reserve_pct
-        plan.reasons.append(Reason.BATTERY_BLUE_NO_GRID)
+        plan.reasons.append(Reason.BATTERY_NOT_WORTH)
     else:
         target = min(100.0, settings.battery_reserve_pct + need_kwh / capacity * 100)
     plan.battery_target_pct = round(target)

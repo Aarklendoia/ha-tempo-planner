@@ -16,9 +16,14 @@ A Tempo day runs from 06:00 to 06:00 and its off-peak hours (22:00–06:00) are
 at its end. Each evening, the planner looks at the colour of the next Tempo day
 and the solar forecast:
 
-- **Home battery** — on a white or red day, charge in off-peak hours what the
-  house will use during peak hours minus what the sun will give. On a blue day
-  it stays off the grid by default: the gain barely covers the battery's losses.
+- **Home battery** — charge in off-peak hours what the house will use during
+  peak hours minus what the sun will give, but only when it pays. The night is
+  billed at *today's* off-peak price and replaces *tomorrow's* peak hours, so the
+  saving per kWh is tomorrow's peak price minus today's off-peak price divided
+  by the battery's efficiency. The battery charges when that saving beats a
+  threshold you set to what a cycle costs in wear (3 c/kWh by default). With
+  the default prices, that means before every red day and on blue → white
+  nights (about 4 c); not on white → white (about 2 c) or before a blue day.
 - **Car** — charge up to the target and finish just before the end of the
   off-peak hours, rather than starting at 22:00 with everything else.
 - **Dishwasher** — on a blue day with enough sun forecast, run it around the
@@ -33,7 +38,7 @@ power you allow.
 | --- | --- |
 | Tomorrow | colour of the next Tempo day; attributes: the night's window, the reasons behind the plan and their explanation in your language |
 | Home battery target | state of charge to reach, % |
-| Home battery grid charge | energy to take from the grid, kWh |
+| Home battery grid charge | energy to take from the grid, kWh; attributes: tonight's off-peak price, tomorrow's peak price and the saving per kWh |
 | Home battery charge start / end | the battery's slot |
 | Car charge energy | energy to take from the grid, kWh |
 | Car charge start / end | the car's slot |
@@ -52,8 +57,10 @@ Only tomorrow's colour is required: any sensor that reads `Bleu`/`Blanc`/`Rouge`
 or `blue`/`white`/`red`, such as the next colour of the
 [RTE Tempo](https://github.com/hekmon/rtetempo) integration. Optional entities:
 the solar forecast for tomorrow and its peak time (Forecast.Solar, Solcast…),
-the home battery and car states of charge, whether the car is plugged in and the
-car's charge target.
+today's colour (the current colour of RTE Tempo; without it the night is
+priced as white), the home battery and car states of charge, whether the car is
+plugged in, the car's charge target, and the six Tempo prices in EUR/kWh
+(without them, default prices are used).
 
 The house itself (capacities, powers, consumption during peak hours, programme
 length…) is set in the integration's options.
@@ -89,9 +96,13 @@ quand charger la voiture, quand faire tourner le lave-vaisselle.
 capteurs, sans rien piloter. Comparez-le pendant une ou deux semaines avec ce que
 vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
 
-- **Batterie** : un jour blanc ou rouge, elle charge en heures creuses ce que la
-  maison consommera en heures pleines, moins le solaire prévu. Un jour bleu, pas
-  de charge sur le réseau par défaut.
+- **Batterie** : elle charge en heures creuses ce que la maison consommera en
+  heures pleines, moins le solaire prévu, mais seulement si c'est rentable. La
+  nuit est facturée au tarif heures creuses du jour et remplace les heures
+  pleines du lendemain : la charge n'a lieu que si l'écart, pertes comprises,
+  dépasse un seuil d'usure réglable (3 c/kWh par défaut). Avec les tarifs par
+  défaut : avant chaque jour rouge et les nuits bleu → blanc, jamais blanc →
+  blanc ni avant un jour bleu.
 - **Voiture** : charge jusqu'à l'objectif, en finissant juste avant la fin des
   heures creuses plutôt qu'en démarrant à 22 h avec tout le reste.
 - **Lave-vaisselle** : un jour bleu bien ensoleillé, autour du pic solaire ;

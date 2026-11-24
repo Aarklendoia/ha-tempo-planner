@@ -48,34 +48,86 @@ def test_next_night():
     assert next_night(at(24, 6), s) == (at(24, 22), at(25, 6))
 
 
-def test_white_day_charges_the_battery_for_peak_hours():
+def test_night_before_a_white_day_charges_the_battery_for_peak_hours():
     plan = make_plan(
-        Inputs(now=at(23, 16), tomorrow=Color.WHITE, solar_tomorrow_kwh=3, battery_soc=20),
+        Inputs(
+            now=at(22, 16),
+            today=Color.BLUE,
+            tomorrow=Color.WHITE,
+            solar_tomorrow_kwh=3,
+            battery_soc=20,
+        ),
         Settings(peak_load_kwh=8, battery_capacity_kwh=10, battery_reserve_pct=5),
     )
     # 8 kWh needed, 3 from the sun: 5 kWh above the 5 % reserve.
     assert plan.battery_target_pct == 55
     assert plan.battery_grid_kwh == pytest.approx(3.5 / 0.9, abs=0.01)
-    assert plan.battery.start == at(23, 22)
+    assert plan.battery.start == at(22, 22)
     assert Reason.BATTERY_CHARGE in plan.reasons
 
 
-def test_blue_day_keeps_the_battery_off_the_grid():
+@pytest.mark.parametrize(
+    ("today", "tomorrow", "charges", "gain"),
+    [
+        # The night is billed at today's off-peak price, after 10 % of losses,
+        # and saves tomorrow's peak price.
+        (Color.BLUE, Color.WHITE, True, 0.1921 - 0.1356 / 0.9),  # about 4.1 c
+        (Color.WHITE, Color.WHITE, False, 0.1921 - 0.1536 / 0.9),  # about 2.1 c
+        (Color.BLUE, Color.BLUE, False, 0.1654 - 0.1356 / 0.9),  # about 1.5 c
+        (Color.WHITE, Color.BLUE, False, 0.1654 - 0.1536 / 0.9),  # a loss
+        (Color.BLUE, Color.RED, True, 0.73 - 0.1356 / 0.9),
+        (Color.WHITE, Color.RED, True, 0.73 - 0.1536 / 0.9),
+        (Color.RED, Color.RED, True, 0.73 - 0.1611 / 0.9),
+        # Unknown colours count as white.
+        (Color.UNKNOWN, Color.UNKNOWN, False, 0.1921 - 0.1536 / 0.9),
+        (Color.BLUE, Color.UNKNOWN, True, 0.1921 - 0.1356 / 0.9),
+    ],
+)
+def test_grid_charge_only_when_the_gap_pays_for_losses_and_wear(today, tomorrow, charges, gain):
     plan = make_plan(
-        Inputs(now=at(23, 16), tomorrow=Color.BLUE, solar_tomorrow_kwh=1, battery_soc=10),
-        Settings(),
+        Inputs(
+            now=at(23, 16),
+            today=today,
+            tomorrow=tomorrow,
+            solar_tomorrow_kwh=1,
+            battery_soc=5,
+        ),
+        Settings(battery_min_gain_eur_kwh=0.03),
     )
-    assert plan.battery_target_pct == 5
-    assert plan.battery is None
-    assert Reason.BATTERY_BLUE_NO_GRID in plan.reasons
+    assert plan.battery_gain_eur_kwh == pytest.approx(gain, abs=1e-4)
+    assert (plan.battery is not None) is charges
+    assert (Reason.BATTERY_NOT_WORTH in plan.reasons) is not charges
+    if not charges:
+        assert plan.battery_target_pct == 5
 
 
-def test_blue_day_charges_when_asked():
-    plan = make_plan(
-        Inputs(now=at(23, 16), tomorrow=Color.BLUE, solar_tomorrow_kwh=0, battery_soc=5),
-        Settings(battery_charge_on_blue=True, peak_load_kwh=4),
+def test_price_entities_override_the_defaults():
+    inputs = Inputs(
+        now=at(23, 16),
+        today=Color.WHITE,
+        tomorrow=Color.WHITE,
+        solar_tomorrow_kwh=0,
+        battery_soc=5,
+        prices={"white_offpeak": 0.10, "white_peak": 0.20},
     )
-    assert plan.battery_target_pct == 45
+    plan = make_plan(inputs, Settings())
+    assert plan.offpeak_price == 0.10
+    assert plan.peak_price == 0.20
+    assert plan.battery is not None
+
+
+def test_a_lower_threshold_charges_on_white_nights():
+    plan = make_plan(
+        Inputs(
+            now=at(23, 16),
+            today=Color.WHITE,
+            tomorrow=Color.WHITE,
+            solar_tomorrow_kwh=0,
+            battery_soc=5,
+        ),
+        Settings(battery_min_gain_eur_kwh=0.02),
+    )
+    assert plan.battery is not None
 
 
 def test_enough_sun_means_no_charge():
@@ -87,13 +139,13 @@ def test_enough_sun_means_no_charge():
     assert Reason.BATTERY_SOLAR_COVERS in plan.reasons
 
 
-def test_unknown_colour_plans_like_white():
+def test_unknown_colour_is_reported():
     plan = make_plan(
         Inputs(now=at(24, 7), tomorrow=Color.UNKNOWN, solar_tomorrow_kwh=0, battery_soc=5),
         Settings(peak_load_kwh=5),
     )
     assert Reason.COLOR_UNKNOWN in plan.reasons
-    assert plan.battery_target_pct == 55
+    assert plan.peak_price == 0.1921
 
 
 def test_car_finishes_before_the_end_of_off_peak():

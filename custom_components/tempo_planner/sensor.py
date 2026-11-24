@@ -70,6 +70,11 @@ SENSORS: tuple[PlanSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         suggested_display_precision=1,
         value=lambda p: p.battery_grid_kwh,
+        attributes=lambda p, _: {
+            "gain_per_kwh": p.battery_gain_eur_kwh,
+            "offpeak_price": p.offpeak_price,
+            "peak_price": p.peak_price,
+        },
     ),
     PlanSensorDescription(
         key="battery_charge_start",

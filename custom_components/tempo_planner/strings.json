@@ -5,21 +5,30 @@
         "title": "Tempo Planner",
         "data": {
           "tomorrow_color_entity": "Tomorrow's Tempo colour",
+          "today_color_entity": "Today's Tempo colour",
           "solar_tomorrow_entity": "Solar forecast for tomorrow",
           "solar_peak_entity": "Solar peak time tomorrow",
           "battery_soc_entity": "Home battery charge",
           "car_soc_entity": "Car battery charge",
           "car_plugged_entity": "Car plugged in",
-          "car_target_entity": "Car charge target"
+          "car_target_entity": "Car charge target",
+          "price_blue_offpeak_entity": "Price, blue off-peak",
+          "price_blue_peak_entity": "Price, blue peak",
+          "price_white_offpeak_entity": "Price, white off-peak",
+          "price_white_peak_entity": "Price, white peak",
+          "price_red_offpeak_entity": "Price, red off-peak",
+          "price_red_peak_entity": "Price, red peak"
         },
         "data_description": {
           "tomorrow_color_entity": "The colour of the next Tempo day (for example the RTE Tempo integration's next colour).",
+          "today_color_entity": "The colour of the current Tempo day (e.g. the current colour from the RTE Tempo integration). The night is billed at its off-peak price; unknown counts as white.",
           "solar_tomorrow_entity": "Energy expected tomorrow, in kWh.",
           "solar_peak_entity": "Time of tomorrow's highest solar power.",
           "battery_soc_entity": "State of charge of the home battery, in %.",
           "car_soc_entity": "State of charge of the car, in %.",
           "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
-          "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used."
+          "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
+          "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
         },
         "description": "Choose the entities the planner reads. Only tomorrow's colour is required."
       },
@@ -33,7 +42,7 @@
           "battery_capacity_kwh": "Home battery capacity",
           "battery_reserve_pct": "Home battery reserve",
           "battery_charge_kw": "Home battery grid charging power",
-          "battery_charge_on_blue": "Charge the home battery before a blue day",
+          "battery_min_gain_ct": "Minimum saving to charge the battery from the grid",
           "car_capacity_kwh": "Car battery capacity",
           "car_charge_kw": "Charger power",
           "car_target_pct": "Car charge target",
@@ -44,7 +53,7 @@
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
           "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar.",
-          "battery_charge_on_blue": "The gain on a blue day barely covers the battery's losses.",
+          "battery_min_gain_ct": "Per kWh given back by the battery, after its losses. Set it to what a cycle costs in wear: battery price divided by its guaranteed cycles and capacity.",
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
           "car_min_kwh": "Below this, no charge is planned."
@@ -62,21 +71,30 @@
         "title": "Entities",
         "data": {
           "tomorrow_color_entity": "Tomorrow's Tempo colour",
+          "today_color_entity": "Today's Tempo colour",
           "solar_tomorrow_entity": "Solar forecast for tomorrow",
           "solar_peak_entity": "Solar peak time tomorrow",
           "battery_soc_entity": "Home battery charge",
           "car_soc_entity": "Car battery charge",
           "car_plugged_entity": "Car plugged in",
-          "car_target_entity": "Car charge target"
+          "car_target_entity": "Car charge target",
+          "price_blue_offpeak_entity": "Price, blue off-peak",
+          "price_blue_peak_entity": "Price, blue peak",
+          "price_white_offpeak_entity": "Price, white off-peak",
+          "price_white_peak_entity": "Price, white peak",
+          "price_red_offpeak_entity": "Price, red off-peak",
+          "price_red_peak_entity": "Price, red peak"
         },
         "data_description": {
           "tomorrow_color_entity": "The colour of the next Tempo day (for example the RTE Tempo integration's next colour).",
+          "today_color_entity": "The colour of the current Tempo day (e.g. the current colour from the RTE Tempo integration). The night is billed at its off-peak price; unknown counts as white.",
           "solar_tomorrow_entity": "Energy expected tomorrow, in kWh.",
           "solar_peak_entity": "Time of tomorrow's highest solar power.",
           "battery_soc_entity": "State of charge of the home battery, in %.",
           "car_soc_entity": "State of charge of the car, in %.",
           "car_plugged_entity": "A binary sensor, or a plug status that reads \"plugged\" when connected.",
-          "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used."
+          "car_target_entity": "The car's own target, in %. Without it, the target in the settings is used.",
+          "price_red_peak_entity": "Prices in EUR/kWh. Without an entity, a default Tempo price is used (blue 0.1356 / 0.1654, white 0.1536 / 0.1921, red 0.1611 / 0.73)."
         }
       },
       "settings": {
@@ -89,7 +107,7 @@
           "battery_capacity_kwh": "Home battery capacity",
           "battery_reserve_pct": "Home battery reserve",
           "battery_charge_kw": "Home battery grid charging power",
-          "battery_charge_on_blue": "Charge the home battery before a blue day",
+          "battery_min_gain_ct": "Minimum saving to charge the battery from the grid",
           "car_capacity_kwh": "Car battery capacity",
           "car_charge_kw": "Charger power",
           "car_target_pct": "Car charge target",
@@ -100,7 +118,7 @@
         "data_description": {
           "max_power_kw": "What the subscription allows, minus what the house keeps for itself.",
           "peak_load_kwh": "Energy the house uses between the end and the start of the off-peak hours, before solar.",
-          "battery_charge_on_blue": "The gain on a blue day barely covers the battery's losses.",
+          "battery_min_gain_ct": "Per kWh given back by the battery, after its losses. Set it to what a cycle costs in wear: battery price divided by its guaranteed cycles and capacity.",
           "car_target_pct": "Used when no target entity is set.",
           "dishwasher_solar_kwh": "On a blue day with at least this much solar forecast, the dishwasher runs around the solar peak.",
           "car_min_kwh": "Below this, no charge is planned."
@@ -124,7 +142,18 @@
         "name": "Home battery target"
       },
       "battery_grid_energy": {
-        "name": "Home battery grid charge"
+        "name": "Home battery grid charge",
+        "state_attributes": {
+          "gain_per_kwh": {
+            "name": "Saving per kWh"
+          },
+          "offpeak_price": {
+            "name": "Tonight's off-peak price"
+          },
+          "peak_price": {
+            "name": "Tomorrow's peak price"
+          }
+        }
       },
       "battery_charge_end": {
         "name": "Home battery charge end"
