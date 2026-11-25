@@ -308,21 +308,30 @@ class LoadShedder:
 
     @callback
     def _on_appliance(self, event: Event[EventStateChangedData]) -> None:
-        self.hass.async_create_task(self._async_enforce(event.data["entity_id"]))
+        # Read now, in the order of the events: a change made before a shedding
+        # started is no override, even when handled after it.
+        entity_id = event.data["entity_id"]
+        shed = [
+            a.id
+            for a in self.appliances.values()
+            if a.watched_entity == entity_id and self.status(a.id).shed
+        ]
+        if shed:
+            self.hass.async_create_task(self._async_enforce(shed, event.data["new_state"]))
 
-    async def _async_enforce(self, entity_id: str) -> None:
+    async def _async_enforce(self, appliance_ids: list[str], current: State | None) -> None:
         async with self._lock:
             changed = False
-            for appliance in list(self.appliances.values()):
-                state = self.states.get(appliance.id)
-                if appliance.watched_entity != entity_id or state is None or not state.shed:
+            for appliance_id in appliance_ids:
+                appliance = self.appliances.get(appliance_id)
+                state = self.states.get(appliance_id)
+                if appliance is None or state is None or not state.shed:
                     continue
-                changed |= await self._enforce(appliance, state)
+                changed |= await self._enforce(appliance, state, current)
             if changed:
                 self._save()
 
-    async def _enforce(self, appliance: Appliance, state: ShedState) -> bool:
-        current = self.hass.states.get(appliance.watched_entity)
+    async def _enforce(self, appliance: Appliance, state: ShedState, current: State | None) -> bool:
         if _missing(current):
             return False
         if appliance.behaviour is Behaviour.OFF:

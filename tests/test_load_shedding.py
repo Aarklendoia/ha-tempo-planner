@@ -185,7 +185,7 @@ async def test_switch_off_releases(hass: HomeAssistant, planner, calls, hass_ws_
     assert hass.states.get(SHED).state == "off"
     assert [c.data["entity_id"] for c in calls["on"]] == ["light.tree"]
 
-    # Back on: shed again.
+    # Back on: shed again. The light turned on just before is no override.
     hass.states.async_set("light.tree", "on")
     await hass.services.async_call("switch", "turn_on", {"entity_id": SWITCH}, blocking=True)
     await hass.async_block_till_done()
