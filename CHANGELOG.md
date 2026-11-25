@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.8.0...v0.9.0) (2026-11-25)
+
+
+### Features
+
+* progressive load shedding by power, by priority ([#45](https://github.com/Aarklendoia/ha-tempo-planner/issues/45)) ([120994e](https://github.com/Aarklendoia/ha-tempo-planner/commit/120994e61669ba7c94e197ea388baae355e9be5c)), closes [#29](https://github.com/Aarklendoia/ha-tempo-planner/issues/29)
+
 ## [0.8.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.7.3...v0.8.0) (2026-11-25)
 
 
