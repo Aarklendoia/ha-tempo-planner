@@ -83,6 +83,9 @@
         "description": "What the planner needs to know about the house. Every value can be changed later in the integration's options."
       }
     },
+    "error": {
+      "same_meter": "The car's meter is taken out of the house's: pick the charger's own meter, not the house one."
+    },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_service%]"
     }
@@ -169,6 +172,9 @@
         },
         "description": "What the planner needs to know about the house."
       }
+    },
+    "error": {
+      "same_meter": "The car's meter is taken out of the house's: pick the charger's own meter, not the house one."
     }
   },
   "entity": {

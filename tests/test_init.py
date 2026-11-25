@@ -64,6 +64,30 @@ async def test_config_flow(hass: HomeAssistant, house) -> None:
     assert result["type"] is FlowResultType.ABORT
 
 
+async def test_flows_refuse_the_house_meter_as_the_car_meter(hass: HomeAssistant, house) -> None:
+    meter = "sensor.house_energy"
+    same = {**ENTITIES, const.CONF_HOUSE_ENERGY: meter, const.CONF_CAR_ENERGY: meter}
+
+    result = await hass.config_entries.flow.async_init(const.DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], same)
+    assert result["step_id"] == "user"
+    assert result["errors"] == {const.CONF_CAR_ENERGY: "same_meter"}
+    hass.config_entries.flow.async_abort(result["flow_id"])
+
+    entry = MockConfigEntry(domain=const.DOMAIN, data=ENTITIES, unique_id=const.DOMAIN)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], same)
+    assert result["step_id"] == "init"
+    assert result["errors"] == {const.CONF_CAR_ENERGY: "same_meter"}
+    # Fixed: the flow goes on.
+    fixed = {**same, const.CONF_CAR_ENERGY: "sensor.car_energy"}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], fixed)
+    assert result["step_id"] == "settings"
+
+
 async def test_sensors_follow_the_inputs(
     hass: HomeAssistant, house, freezer: FrozenDateTimeFactory
 ) -> None:

@@ -273,6 +273,17 @@ def test_peak_load_without_a_complete_day():
     assert peak_load_from_history(hours_of(22, 1.0, first=10), Settings()) is None
 
 
+def test_peak_load_skips_days_that_add_up_to_nothing():
+    from custom_components.tempo_planner.planner import peak_load_from_history, peak_totals
+
+    # The car's meter taken out of itself: every hour at 0.
+    hours = [*hours_of(20, 0.0), *hours_of(21, 1.0)]
+    assert peak_totals(hours, Settings()) == {at(21, 0).date(): 16.0}
+    assert peak_load_from_history(hours, Settings()).kwh == 16.0
+    # Nothing left: the setting applies.
+    assert peak_load_from_history(hours_of(20, 0.0), Settings()) is None
+
+
 def test_history_replaces_the_setting():
     from custom_components.tempo_planner.planner import PeakLoad
 
