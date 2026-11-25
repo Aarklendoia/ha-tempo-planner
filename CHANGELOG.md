@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.5.0...v0.5.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* never learn a 0 kWh peak load from the meters ([#24](https://github.com/Aarklendoia/ha-tempo-planner/issues/24)) ([9ad1451](https://github.com/Aarklendoia/ha-tempo-planner/commit/9ad1451dd0a9da24434ad3dcc1c407cfa392931b)), closes [#23](https://github.com/Aarklendoia/ha-tempo-planner/issues/23)
+
 ## [0.5.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.4.0...v0.5.0) (2026-11-24)
 
 
