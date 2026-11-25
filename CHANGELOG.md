@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.5.1...v0.6.0) (2026-11-25)
+
+
+### Features
+
+* shed any appliance on red days ([#30](https://github.com/Aarklendoia/ha-tempo-planner/issues/30)) ([288287a](https://github.com/Aarklendoia/ha-tempo-planner/commit/288287a28360d7bb05c53026755133b96fc6ff22))
+
 ## [0.5.1](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.5.0...v0.5.1) (2026-11-25)
 
 
