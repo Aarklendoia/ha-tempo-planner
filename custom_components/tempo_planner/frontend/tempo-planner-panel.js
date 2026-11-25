@@ -40,6 +40,8 @@ const TEXTS = {
     behaviour_alert: "Alert only",
     hours_peak: "peak hours",
     hours_day: "whole Tempo day",
+    option_hours_peak: "Peak hours",
+    option_hours_day: "Whole Tempo day",
     priority: "priority {value}",
     new_appliance: "New appliance",
     field_name: "Name",
@@ -95,6 +97,8 @@ const TEXTS = {
     behaviour_alert: "Alerte seulement",
     hours_peak: "heures pleines",
     hours_day: "toute la journée Tempo",
+    option_hours_peak: "Heures pleines",
+    option_hours_day: "Toute la journée Tempo",
     priority: "priorité {value}",
     new_appliance: "Nouvel appareil",
     field_name: "Nom",
@@ -362,8 +366,12 @@ class TempoPlannerPanel extends LitElement {
   }
 
   _renderAppliance(a) {
+    const behaviour =
+      a.behaviour === "reduced" && a.reduced_option
+        ? `${this._t("behaviour_reduced")} → ${a.reduced_option}`
+        : this._t(`behaviour_${a.behaviour}`);
     const details = [
-      this._t(`behaviour_${a.behaviour}`),
+      behaviour,
       this._t(`hours_${a.hours}`),
       this._t("priority", { value: a.priority }),
     ];
@@ -379,7 +387,7 @@ class TempoPlannerPanel extends LitElement {
                   >`
                 : nothing}
             </div>
-            <div class="muted">${this._entityName(a.entity_id)}</div>
+            <div class="muted entity">${a.entity_id}</div>
             <div class="muted">
               ${a.colors.map((c) => this._chip(c))} ${details.join(" · ")}
             </div>
@@ -409,13 +417,11 @@ class TempoPlannerPanel extends LitElement {
         <h2>${draft.id ? draft.name : this._t("new_appliance")}</h2>
         <p class="muted">${this._t(`help_${draft.behaviour}`)}</p>
         ${this._formsReady
-          ? html`<ha-form
-              .hass=${this.hass}
-              .data=${draft}
-              .schema=${this._schema(draft)}
-              .computeLabel=${(field) => this._t(`field_${field.name}`)}
-              @value-changed=${this._changed}
-            ></ha-form>`
+          ? html`${this._form(draft, this._schemaTop(draft))}
+              ${draft.entity_id
+                ? html`<div class="muted entity picked">${draft.entity_id}</div>`
+                : nothing}
+              ${this._form(draft, this._schemaRest(draft))}`
           : html`<div class="loading">…</div>`}
         ${this._formError
           ? html`<div class="banner error">${this._t("error", { message: this._formError })}</div>`
@@ -440,16 +446,26 @@ class TempoPlannerPanel extends LitElement {
     return attributes.options || [];
   }
 
-  _schema(draft) {
+  _form(draft, schema) {
+    return html`<ha-form
+      .hass=${this.hass}
+      .data=${draft}
+      .schema=${schema}
+      .computeLabel=${(field) => this._t(`field_${field.name}`)}
+      @value-changed=${this._changed}
+    ></ha-form>`;
+  }
+
+  // What to do, then to which entity: the entity's domains follow the behaviour.
+  _schemaTop(draft) {
     const option = (value, label) => ({ value, label });
-    const behaviour = draft.behaviour;
     const domains =
-      behaviour === "off" ? OFF_DOMAINS : behaviour === "reduced" ? REDUCED_DOMAINS : undefined;
-    const notify = Object.keys(this.hass.services?.notify || {})
-      .sort()
-      .map((service) => option(`notify.${service}`, service));
-    const schema = [
-      { name: "name", required: true, selector: { text: {} } },
+      draft.behaviour === "off"
+        ? OFF_DOMAINS
+        : draft.behaviour === "reduced"
+          ? REDUCED_DOMAINS
+          : undefined;
+    return [
       {
         name: "behaviour",
         required: true,
@@ -466,6 +482,16 @@ class TempoPlannerPanel extends LitElement {
         selector: { entity: domains ? { domain: domains } : {} },
       },
     ];
+  }
+
+  _schemaRest(draft) {
+    const option = (value, label) => ({ value, label });
+    const behaviour = draft.behaviour;
+    const notify = Object.keys(this.hass.services?.notify || {})
+      .sort()
+      .map((service) => option(`notify.${service}`, service));
+    // A plain string field: the text selector leaves a gap below it.
+    const schema = [{ name: "name", required: true, type: "string" }];
     if (behaviour === "reduced") {
       schema.push({
         name: "reduced_option",
@@ -503,7 +529,7 @@ class TempoPlannerPanel extends LitElement {
         selector: {
           select: {
             mode: "dropdown",
-            options: ["peak", "day"].map((h) => option(h, this._t(`hours_${h}`))),
+            options: ["peak", "day"].map((h) => option(h, this._t(`option_hours_${h}`))),
           },
         },
       },
@@ -551,7 +577,8 @@ class TempoPlannerPanel extends LitElement {
   }
 
   _changed(ev) {
-    const value = { ...ev.detail.value };
+    // Two forms share the draft: each sends only its own fields.
+    const value = { ...this._draft, ...ev.detail.value };
     // Another behaviour: a mode chosen for the old entity no longer applies.
     if (value.entity_id !== this._draft.entity_id || value.behaviour !== this._draft.behaviour) {
       if (!this._modes(value.entity_id || "").includes(value.reduced_option)) {
@@ -772,6 +799,14 @@ class TempoPlannerPanel extends LitElement {
       color: #fff;
       font-size: 12px;
       font-weight: 500;
+    }
+    .entity {
+      font-family: var(--ha-font-family-code, monospace);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+    .entity.picked {
+      margin: -8px 0 16px;
     }
     .appliance.disabled .grow {
       opacity: 0.6;
