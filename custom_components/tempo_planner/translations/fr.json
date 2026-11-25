@@ -181,6 +181,9 @@
     "binary_sensor": {
       "plug_car_tonight": {
         "name": "Brancher la voiture ce soir"
+      },
+      "shed": {
+        "name": "{appliance} délesté"
       }
     },
     "sensor": {
@@ -393,6 +396,14 @@
       },
       "battery_charge_start": {
         "name": "Début de charge de la batterie"
+      },
+      "shed_appliances": {
+        "name": "Appareils délestés"
+      }
+    },
+    "switch": {
+      "shed_enabled": {
+        "name": "Délester {appliance}"
       }
     }
   }

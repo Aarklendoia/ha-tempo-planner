@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -40,6 +40,9 @@ from .review import (
     summarize,
 )
 from .solar import hourly_profile
+
+if TYPE_CHECKING:
+    from .load_shedding import LoadShedder
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -123,6 +126,8 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         )
         self._config = entry_config(entry)
         self._settings = settings_from(self._config)
+        # Set up right after the coordinator, see async_setup_entry.
+        self.shedder: LoadShedder
         # Hourly house consumption, reloaded once a day.
         self._hours: list[tuple[datetime, float]] = []
         self._hours_day: date | None = None
@@ -135,6 +140,10 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         self._forecasts: dict[date, Forecast] = {}
         self._reviews: dict[date, DayReview] = {}
         self._reviewed_on: date | None = None
+
+    @property
+    def settings(self) -> Settings:
+        return self._settings
 
     @property
     def watched(self) -> list[str]:

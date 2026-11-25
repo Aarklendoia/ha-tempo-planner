@@ -181,6 +181,9 @@
     "binary_sensor": {
       "plug_car_tonight": {
         "name": "Plug in the car tonight"
+      },
+      "shed": {
+        "name": "{appliance} shed"
       }
     },
     "sensor": {
@@ -393,6 +396,14 @@
       },
       "battery_charge_start": {
         "name": "Home battery charge start"
+      },
+      "shed_appliances": {
+        "name": "Shed appliances"
+      }
+    },
+    "switch": {
+      "shed_enabled": {
+        "name": "Shed {appliance}"
       }
     }
   }
