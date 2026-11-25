@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import logging
 from typing import Any
 import uuid
@@ -20,8 +20,15 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from . import const
-from .planner import Color, Settings, parse_color
-from .shedding import Appliance, Behaviour, ShedReason, is_running, tariff_until
+from .planner import Color, Settings, parse_color, tempo_day
+from .shedding import (
+    Appliance,
+    Behaviour,
+    ShedReason,
+    current_color,
+    is_running,
+    tariff_until,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -112,6 +119,9 @@ class LoadShedder:
         self.entry_id = entry_id
         self._settings = settings
         self._color_entity: str | None = config.get(const.CONF_TODAY_COLOR)
+        self._tomorrow_entity: str | None = config.get(const.CONF_TOMORROW_COLOR)
+        # The colour of each Tempo day as announced the day before.
+        self._announced: dict[date, Color] = {}
         self._store: Store[dict[str, Any]] = Store(
             hass, STORAGE_VERSION, f"{const.DOMAIN}.{entry_id}.appliances"
         )
@@ -138,6 +148,11 @@ class LoadShedder:
             for key, data in stored.get("states", {}).items()
             if key in self.appliances
         }
+        for day, color in stored.get("announced", {}).items():
+            try:
+                self._announced[date.fromisoformat(day)] = Color(color)
+            except ValueError:
+                continue
 
     async def async_start(self) -> None:
         """Follow the tariff and the appliances, and shed what must be."""
@@ -155,6 +170,11 @@ class LoadShedder:
             self._unsubs.append(
                 async_track_state_change_event(self.hass, self._color_entity, self._on_color)
             )
+        if self._tomorrow_entity:
+            self._unsubs.append(
+                async_track_state_change_event(self.hass, self._tomorrow_entity, self._on_tomorrow)
+            )
+            self._remember_tomorrow()
         self._watch()
         await self.async_evaluate()
 
@@ -234,10 +254,37 @@ class LoadShedder:
     def _on_color(self, _: Event[EventStateChangedData]) -> None:
         self.hass.async_create_task(self.async_evaluate())
 
+    @callback
+    def _on_tomorrow(self, _: Event[EventStateChangedData]) -> None:
+        self._remember_tomorrow()
+
+    @callback
+    def _remember_tomorrow(self) -> None:
+        """Keep the next day's colour: the current colour entity lags behind at 06:00."""
+        state = self.hass.states.get(self._tomorrow_entity) if self._tomorrow_entity else None
+        color = parse_color(state.state if state else None)
+        if color is Color.UNKNOWN:
+            return
+        today = tempo_day(dt_util.now(), self._settings)
+        tomorrow = today + timedelta(days=1)
+        if self._announced.get(tomorrow) is color:
+            return
+        self._announced = {d: c for d, c in self._announced.items() if d >= today} | {
+            tomorrow: color
+        }
+        self._save()
+
     def color(self) -> Color:
         """Colour of the Tempo day in progress."""
+        now = dt_util.now()
+        day = tempo_day(now, self._settings)
         state = self.hass.states.get(self._color_entity) if self._color_entity else None
-        return parse_color(state.state if state else None)
+        return current_color(
+            parse_color(state.state if state else None),
+            state.last_updated if state else None,
+            self._announced.get(day),
+            datetime.combine(day, self._settings.offpeak_end, now.tzinfo),
+        )
 
     async def async_evaluate(self) -> None:
         """Shed or release every appliance by the current tariff."""
@@ -411,6 +458,7 @@ class LoadShedder:
         return {
             "appliances": [a.to_dict() for a in self.appliances.values()],
             "states": {k: s.to_dict() for k, s in self.states.items() if s.shed},
+            "announced": {d.isoformat(): str(c) for d, c in self._announced.items()},
         }
 
     def status(self, appliance_id: str) -> ShedState:

@@ -173,3 +173,21 @@ def is_running(appliance: Appliance, state: str | None) -> bool:
         return float(state) > appliance.running_above
     except ValueError:
         return state in appliance.running_states
+
+
+def current_color(
+    entity_color: Color,
+    entity_updated: datetime | None,
+    announced: Color | None,
+    day_start: datetime,
+) -> Color:
+    """Colour of the Tempo day in progress.
+
+    The current colour entity switches a few seconds after the day starts: until
+    it has been updated since `day_start`, the colour announced the day before
+    for this day wins.
+    """
+    stale = entity_updated is None or entity_updated < day_start
+    if stale and announced is not None and announced is not Color.UNKNOWN:
+        return announced
+    return entity_color

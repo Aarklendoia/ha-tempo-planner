@@ -277,3 +277,46 @@ async def test_no_flicker_when_the_colour_is_briefly_unavailable(
     await move_to(hass, freezer, datetime(2026, 11, 23, 22, 0, tzinfo=PARIS))
     assert hass.states.get(SHED).state == "off"
     assert [c.data["entity_id"] for c in calls["on"]] == ["light.tree"]
+
+
+async def test_the_day_after_a_red_day_starts_white_at_once(
+    hass: HomeAssistant, planner, calls, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    """At 06:00 the current colour entity still shows yesterday's red for a few seconds."""
+    hass.states.async_set("light.tree", "on")
+    client = await hass_ws_client(hass)
+    assert (await save(client, name="Tree", entity_id="light.tree"))["success"]
+    await red_day(hass)
+    hass.states.async_set("light.tree", "off")
+    await hass.async_block_till_done()
+    # Announced for tomorrow: white.
+    hass.states.async_set("sensor.rte_tempo_prochaine_couleur", "Blanc")
+    await hass.async_block_till_done()
+    await move_to(hass, freezer, datetime(2026, 11, 23, 22, 0, tzinfo=PARIS))
+    assert len(calls["on"]) == 1
+    hass.states.async_set("light.tree", "on")
+    await hass.async_block_till_done()
+
+    # 06:00:00, still "Rouge": not shed again.
+    await move_to(hass, freezer, datetime(2026, 11, 24, 6, 0, tzinfo=PARIS))
+    assert len(calls["off"]) == 1
+    assert hass.states.get(SHED).state == "off"
+    # 06:00:08, the entity catches up.
+    freezer.move_to(datetime(2026, 11, 24, 6, 0, 8, tzinfo=PARIS))
+    hass.states.async_set(COLOR, "Blanc")
+    await hass.async_block_till_done()
+    assert len(calls["off"]) == 1
+
+
+async def test_a_red_day_after_a_red_day_is_shed_at_once(
+    hass: HomeAssistant, planner, calls, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    hass.states.async_set("light.tree", "on")
+    client = await hass_ws_client(hass)
+    assert (await save(client, name="Tree", entity_id="light.tree"))["success"]
+    hass.states.async_set("sensor.rte_tempo_prochaine_couleur", "Rouge")
+    await hass.async_block_till_done()
+    await move_to(hass, freezer, datetime(2026, 11, 24, 6, 0, tzinfo=PARIS))
+    # The current colour entity still says blue, from yesterday.
+    assert hass.states.get(SHED).state == "on"
+    assert len(calls["off"]) == 1
