@@ -78,6 +78,9 @@ class ShedState:
     saved: str | None = None
     # The alert behaviour notifies once per running spell.
     running: bool = False
+    # The state seen when the shedding started (its context): no override, even
+    # when its change event is handled after the start.
+    seen: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -86,6 +89,7 @@ class ShedState:
             "until": self.until.isoformat() if self.until else None,
             "saved": self.saved,
             "running": self.running,
+            "seen": self.seen,
         }
 
     @classmethod
@@ -96,6 +100,7 @@ class ShedState:
             until=dt_util.parse_datetime(u) if (u := data.get("until")) else None,
             saved=data.get("saved"),
             running=bool(data.get("running")),
+            seen=data.get("seen"),
         )
 
 
@@ -276,6 +281,8 @@ class LoadShedder:
 
     async def _shed(self, appliance: Appliance, state: ShedState, until: datetime) -> None:
         state.shed, state.reason, state.until = True, ShedReason.TARIFF, until
+        if (seen := self.hass.states.get(appliance.watched_entity)) is not None:
+            state.seen = seen.context.id
         current = self.hass.states.get(appliance.entity_id)
         if appliance.behaviour is Behaviour.OFF:
             state.saved = None if _missing(current) else _on_off(current)
@@ -332,7 +339,7 @@ class LoadShedder:
                 self._save()
 
     async def _enforce(self, appliance: Appliance, state: ShedState, current: State | None) -> bool:
-        if _missing(current):
+        if _missing(current) or current.context.id == state.seen:
             return False
         if appliance.behaviour is Behaviour.OFF:
             if _on_off(current) != "on":
