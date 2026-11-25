@@ -407,6 +407,7 @@ class TempoPlannerPanel extends LitElement {
       ${!s.today_color_entity
         ? html`<div class="banner warning">${this._t("no_today_color")}</div>`
         : nothing}
+      <div class="grid">
       <div class="card">
         <div class="days">
           <div class="day">
@@ -443,6 +444,7 @@ class TempoPlannerPanel extends LitElement {
               )}
             </ul>`}
       </div>
+      </div>
     `;
   }
 
@@ -453,9 +455,11 @@ class TempoPlannerPanel extends LitElement {
       ${appliances.length === 0 && !this._draft
         ? html`<div class="card"><p class="muted">${this._t("no_appliance")}</p></div>`
         : nothing}
-      ${appliances.map((a) =>
-        this._draft?.id === a.id ? this._renderEditor() : this._renderAppliance(a),
-      )}
+      <div class="grid">
+        ${appliances.map((a) =>
+          this._draft?.id === a.id ? this._renderEditor() : this._renderAppliance(a),
+        )}
+      </div>
       ${this._draft
         ? nothing
         : html`<button class="primary add" @click=${() => this._edit(null)}>
@@ -813,6 +817,7 @@ class TempoPlannerPanel extends LitElement {
     const draft = this._powerDraft || this._powerSettings();
     const order = this._snapshot.appliances.filter((a) => a.behaviour !== "alert");
     return html`
+      <div class="grid">
       <div class="card">
         <h2>${this._t("power_now")}</h2>
         ${!p.enabled
@@ -859,6 +864,7 @@ class TempoPlannerPanel extends LitElement {
             </li>`;
           })}
         </ol>
+      </div>
       </div>
       <div class="card editor">
         <h2>${this._t("power_settings")}</h2>
@@ -1041,12 +1047,22 @@ class TempoPlannerPanel extends LitElement {
       border-bottom-color: currentColor;
     }
     .content {
-      max-width: 720px;
+      max-width: 1600px;
       margin: 0 auto;
       padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+    /* The cards of a tab, side by side on a large screen. */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+      align-items: start;
+      gap: 16px;
+    }
+    .grid .editor {
+      grid-column: 1 / -1;
     }
     .card {
       background: var(--card-background-color, var(--ha-card-background));
