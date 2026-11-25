@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.7.1...v0.7.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* the entity id no longer overlaps the entity picker ([#38](https://github.com/Aarklendoia/ha-tempo-planner/issues/38)) ([9396d39](https://github.com/Aarklendoia/ha-tempo-planner/commit/9396d39d867c358f94c52e57ecb43ad93c8c9f6c)), closes [#37](https://github.com/Aarklendoia/ha-tempo-planner/issues/37)
+
 ## [0.7.1](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.7.0...v0.7.1) (2026-11-25)
 
 
