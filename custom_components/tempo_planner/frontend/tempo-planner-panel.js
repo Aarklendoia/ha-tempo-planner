@@ -58,6 +58,14 @@ const TEXTS = {
     field_power_entity: "Its power sensor",
     field_power_kw: "Or its power (kW)",
     field_enabled: "Load shedding on",
+    field_normal_option: "Mode while a schedule is on",
+    field_schedule_blue: "Schedule on blue days",
+    field_schedule_white: "Schedule on white days",
+    field_schedule_red: "Schedule on red days",
+    schedules_title: "Schedules by colour",
+    schedules_help:
+      "Optional. On a day of that colour the appliance is on (or in its normal mode) while the schedule is on, off (or reduced) otherwise, at each change of the schedule. Shedding wins over schedules.",
+    schedules: "schedules: {colors}",
     help_off: "Turned off, back on afterwards if it was on. Turned back on by someone: off again, with a notification.",
     help_reduced: "A mode is forced (Eco, a preset…), the previous one restored afterwards.",
     help_alert: "Nothing is driven: a notification when it starts running while shed.",
@@ -115,6 +123,14 @@ const TEXTS = {
     field_power_entity: "Son capteur de puissance",
     field_power_kw: "Ou sa puissance (kW)",
     field_enabled: "Délestage activé",
+    field_normal_option: "Mode quand un planning est actif",
+    field_schedule_blue: "Planning des jours bleus",
+    field_schedule_white: "Planning des jours blancs",
+    field_schedule_red: "Planning des jours rouges",
+    schedules_title: "Plannings par couleur",
+    schedules_help:
+      "Facultatif. Un jour de cette couleur, l'appareil est allumé (ou dans son mode normal) tant que le planning est actif, éteint (ou réduit) sinon, à chaque changement du planning. Le délestage passe avant les plannings.",
+    schedules: "plannings : {colors}",
     help_off: "Coupé, puis rallumé s'il l'était. Rallumé par quelqu'un : recoupé, avec une notification.",
     help_reduced: "Un mode est imposé (Eco, un preset…), puis le précédent est remis.",
     help_alert: "Rien n'est piloté : une notification quand il se met à fonctionner pendant le délestage.",
@@ -150,6 +166,10 @@ const EMPTY = {
   power_entity: null,
   power_kw: null,
   enabled: true,
+  schedule_blue: null,
+  schedule_white: null,
+  schedule_red: null,
+  normal_option: null,
 };
 
 // ha-form and its selectors are loaded on demand by the frontend: opening a
@@ -375,6 +395,12 @@ class TempoPlannerPanel extends LitElement {
       this._t(`hours_${a.hours}`),
       this._t("priority", { value: a.priority }),
     ];
+    const scheduled = COLORS.filter((c) => a[`schedule_${c}`]);
+    if (scheduled.length) {
+      details.push(
+        this._t("schedules", { colors: scheduled.map((c) => this._t(c).toLowerCase()).join(", ") }),
+      );
+    }
     return html`
       <div class="card appliance ${a.enabled ? "" : "disabled"}">
         <div class="row">
@@ -421,7 +447,12 @@ class TempoPlannerPanel extends LitElement {
               ${draft.entity_id
                 ? html`<div class="muted entity picked">${draft.entity_id}</div>`
                 : nothing}
-              ${this._form(draft, this._schemaRest(draft))}`
+              ${this._form(draft, this._schemaRest(draft))}
+              ${draft.behaviour === "alert"
+                ? nothing
+                : html`<h3>${this._t("schedules_title")}</h3>
+                    <p class="muted">${this._t("schedules_help")}</p>
+                    ${this._form(draft, this._schemaSchedules(draft))}`}`
           : html`<div class="loading">…</div>`}
         ${this._formError
           ? html`<div class="banner error">${this._t("error", { message: this._formError })}</div>`
@@ -548,9 +579,31 @@ class TempoPlannerPanel extends LitElement {
     return schema;
   }
 
+  _schemaSchedules(draft) {
+    const schema = [];
+    if (draft.behaviour === "reduced") {
+      schema.push({
+        name: "normal_option",
+        selector: {
+          select: {
+            mode: "dropdown",
+            custom_value: true,
+            options: this._modes(draft.entity_id).map((m) => ({ value: m, label: m })),
+          },
+        },
+      });
+    }
+    for (const color of COLORS) {
+      schema.push({ name: `schedule_${color}`, selector: { entity: { domain: "schedule" } } });
+    }
+    return schema;
+  }
+
   _valid(draft) {
     if (!draft.name || !draft.entity_id || !draft.colors?.length) return false;
     if (draft.behaviour === "reduced" && !draft.reduced_option) return false;
+    const scheduled = COLORS.some((c) => draft[`schedule_${c}`]);
+    if (scheduled && draft.behaviour === "reduced" && !draft.normal_option) return false;
     return true;
   }
 
@@ -604,6 +657,9 @@ class TempoPlannerPanel extends LitElement {
     if (!appliance.running_states.length) appliance.running_states = ["on"];
     for (const key of Object.keys(appliance)) {
       if (appliance[key] === "" || appliance[key] === undefined) appliance[key] = null;
+    }
+    if (appliance.behaviour === "alert") {
+      for (const color of COLORS) appliance[`schedule_${color}`] = null;
     }
     if (appliance.priority === null) appliance.priority = 0;
     if (appliance.running_above === null) appliance.running_above = 50;
@@ -710,6 +766,11 @@ class TempoPlannerPanel extends LitElement {
       border: 1px solid var(--divider-color);
       box-shadow: var(--ha-card-box-shadow, none);
       padding: 16px;
+    }
+    .editor h3 {
+      margin: 24px 0 0;
+      font-size: 16px;
+      font-weight: 500;
     }
     .card h2 {
       margin: 0 0 12px;

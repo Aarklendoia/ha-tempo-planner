@@ -36,6 +36,10 @@ _APPLIANCE = vol.Schema(
         vol.Optional("power_entity"): vol.Any(None, cv.entity_id),
         vol.Optional("power_kw"): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=0))),
         vol.Optional("enabled", default=True): cv.boolean,
+        vol.Optional("schedule_blue"): vol.Any(None, cv.entity_id),
+        vol.Optional("schedule_white"): vol.Any(None, cv.entity_id),
+        vol.Optional("schedule_red"): vol.Any(None, cv.entity_id),
+        vol.Optional("normal_option"): vol.Any(None, cv.string),
     }
 )
 

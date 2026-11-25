@@ -320,3 +320,130 @@ async def test_a_red_day_after_a_red_day_is_shed_at_once(
     # The current colour entity still says blue, from yesterday.
     assert hass.states.get(SHED).state == "on"
     assert len(calls["off"]) == 1
+
+
+async def test_schedules_per_colour(
+    hass: HomeAssistant, planner, calls, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    """Blue: the normal schedule; white: a reduced one; red: off all day."""
+    hass.states.async_set("light.tree", "off")
+    hass.states.async_set("schedule.tree", "on")
+    hass.states.async_set("schedule.tree_white", "off")
+    client = await hass_ws_client(hass)
+    reply = await save(
+        client,
+        name="Tree",
+        entity_id="light.tree",
+        hours="day",
+        schedule_blue="schedule.tree",
+        schedule_white="schedule.tree_white",
+    )
+    assert reply["success"], reply
+    await hass.async_block_till_done()
+    # A blue day with its schedule on: turned on at once.
+    assert [c.data["entity_id"] for c in calls["on"]] == ["light.tree"]
+    hass.states.async_set("light.tree", "on")
+
+    # The schedule ends: off.
+    hass.states.async_set("schedule.tree", "off")
+    await hass.async_block_till_done()
+    assert len(calls["off"]) == 1
+    hass.states.async_set("light.tree", "off")
+    await hass.async_block_till_done()
+    # Turned on by hand outside the schedule: left alone.
+    hass.states.async_set("light.tree", "on")
+    await hass.async_block_till_done()
+    assert len(calls["off"]) == 1
+    hass.states.async_set("light.tree", "off")
+
+    # Next day white, announced: at 06:00 the white schedule applies (off: nothing to do).
+    hass.states.async_set("sensor.rte_tempo_prochaine_couleur", "Blanc")
+    await hass.async_block_till_done()
+    await move_to(hass, freezer, datetime(2026, 11, 24, 6, 0, tzinfo=PARIS))
+    hass.states.async_set(COLOR, "Blanc")
+    await hass.async_block_till_done()
+    # The blue schedule no longer drives it.
+    hass.states.async_set("schedule.tree", "on")
+    await hass.async_block_till_done()
+    assert len(calls["on"]) == 1
+    hass.states.async_set("schedule.tree_white", "on")
+    await hass.async_block_till_done()
+    assert len(calls["on"]) == 2
+    hass.states.async_set("light.tree", "on")
+    await hass.async_block_till_done()
+
+    # Next day red: shed all day, whatever the schedules.
+    hass.states.async_set("sensor.rte_tempo_prochaine_couleur", "Rouge")
+    await hass.async_block_till_done()
+    await move_to(hass, freezer, datetime(2026, 11, 25, 6, 0, tzinfo=PARIS))
+    hass.states.async_set(COLOR, "Rouge")
+    await hass.async_block_till_done()
+    assert hass.states.get(SHED).state == "on"
+    assert len(calls["off"]) == 2
+    hass.states.async_set("light.tree", "off")
+    hass.states.async_set("schedule.tree_white", "off")
+    hass.states.async_set("schedule.tree_white", "on")
+    await hass.async_block_till_done()
+    assert len(calls["on"]) == 2
+
+    # The red day ends on a white day with the white schedule on: the schedule
+    # decides, not the state before the shedding.
+    hass.states.async_set("sensor.rte_tempo_prochaine_couleur", "Blanc")
+    await hass.async_block_till_done()
+    await move_to(hass, freezer, datetime(2026, 11, 26, 6, 0, tzinfo=PARIS))
+    assert hass.states.get(SHED).state == "off"
+    assert len(calls["on"]) == 3
+
+
+async def test_reduced_mode_schedule(hass: HomeAssistant, planner, calls, hass_ws_client) -> None:
+    hass.states.async_set("input_select.radiator", "Eco")
+    hass.states.async_set("schedule.radiator", "off")
+    client = await hass_ws_client(hass)
+    reply = await save(
+        client,
+        name="Radiator",
+        entity_id="input_select.radiator",
+        behaviour="reduced",
+        reduced_option="Eco",
+        normal_option="Confort",
+        schedule_blue="schedule.radiator",
+    )
+    assert reply["success"], reply
+    await hass.async_block_till_done()
+    # Off and already in Eco: nothing to do.
+    assert calls["select"] == []
+    hass.states.async_set("schedule.radiator", "on")
+    await hass.async_block_till_done()
+    assert calls["select"][-1].data["option"] == "Confort"
+    hass.states.async_set("input_select.radiator", "Confort")
+    hass.states.async_set("schedule.radiator", "off")
+    await hass.async_block_till_done()
+    assert calls["select"][-1].data["option"] == "Eco"
+
+
+async def test_schedules_stop_with_the_switch(
+    hass: HomeAssistant, planner, calls, hass_ws_client
+) -> None:
+    hass.states.async_set("light.tree", "off")
+    hass.states.async_set("schedule.tree", "off")
+    client = await hass_ws_client(hass)
+    assert (await save(client, name="Tree", entity_id="light.tree", schedule_blue="schedule.tree"))[
+        "success"
+    ]
+    await hass.services.async_call("switch", "turn_off", {"entity_id": SWITCH}, blocking=True)
+    await hass.async_block_till_done()
+    hass.states.async_set("schedule.tree", "on")
+    await hass.async_block_till_done()
+    assert calls["on"] == []
+
+
+async def test_schedule_errors(hass: HomeAssistant, planner, hass_ws_client) -> None:
+    client = await hass_ws_client(hass)
+    reply = await save(
+        client,
+        name="Car",
+        entity_id="sensor.car",
+        behaviour="alert",
+        schedule_red="schedule.car",
+    )
+    assert "alert_has_no_schedule" in reply["error"]["message"]

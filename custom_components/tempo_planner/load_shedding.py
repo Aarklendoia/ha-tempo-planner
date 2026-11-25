@@ -27,6 +27,7 @@ from .shedding import (
     ShedReason,
     current_color,
     is_running,
+    scheduled_state,
     tariff_until,
 )
 
@@ -130,6 +131,9 @@ class LoadShedder:
         self._lock = asyncio.Lock()
         self._unsubs: list[Callable[[], None]] = []
         self._unsub_watch: Callable[[], None] | None = None
+        self._unsub_schedules: Callable[[], None] | None = None
+        # The colour whose schedules the appliances follow; they switch when it changes.
+        self._schedule_color: Color | None = None
 
     # --- Life cycle -------------------------------------------------------
 
@@ -176,6 +180,9 @@ class LoadShedder:
             )
             self._remember_tomorrow()
         self._watch()
+        # Started in the middle of a day: schedules act at their next change only,
+        # like an automation, so a manual change made meanwhile is kept.
+        self._schedule_color = self.color()
         await self.async_evaluate()
 
     async def async_stop(self) -> None:
@@ -184,19 +191,27 @@ class LoadShedder:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
-        if self._unsub_watch:
-            self._unsub_watch()
-            self._unsub_watch = None
+        self._unwatch()
+
+    @callback
+    def _unwatch(self) -> None:
+        for unsub in (self._unsub_watch, self._unsub_schedules):
+            if unsub:
+                unsub()
+        self._unsub_watch = self._unsub_schedules = None
 
     @callback
     def _watch(self) -> None:
-        if self._unsub_watch:
-            self._unsub_watch()
-            self._unsub_watch = None
+        self._unwatch()
         watched = sorted({a.watched_entity for a in self.appliances.values()})
         if watched:
             self._unsub_watch = async_track_state_change_event(
                 self.hass, watched, self._on_appliance
+            )
+        schedules = sorted({s for a in self.appliances.values() for s in a.schedules})
+        if schedules:
+            self._unsub_schedules = async_track_state_change_event(
+                self.hass, schedules, self._on_schedule
             )
 
     # --- Changes from the API and the switches ------------------------------
@@ -217,6 +232,11 @@ class LoadShedder:
         if old is None:
             async_dispatcher_send(self.hass, signal_added(self.entry_id), appliance)
         await self.async_evaluate()
+        if old is None or _schedules_of(old) != _schedules_of(appliance):
+            # New schedules apply at once.
+            async with self._lock:
+                if not self._state(appliance_id).shed:
+                    await self._follow_schedule(appliance, self.color())
         if old is not None and old.name != appliance.name:
             # Entity names are translated once: reloading renames them.
             self.hass.config_entries.async_schedule_reload(self.entry_id)
@@ -228,7 +248,8 @@ class LoadShedder:
             raise KeyError(appliance_id)
         async with self._lock:
             if self._state(appliance_id).shed:
-                await self._release(appliance, self._state(appliance_id))
+                # Handed back as it was, whatever its schedules say.
+                await self._release(appliance, self._state(appliance_id), follow_schedule=False)
             del self.appliances[appliance_id]
             self.states.pop(appliance_id, None)
             self._save()
@@ -292,6 +313,8 @@ class LoadShedder:
         color = self.color()
         async with self._lock:
             changed = False
+            # Released by this pass: already put where their schedule wants them.
+            released: set[str] = set()
             for appliance in list(self.appliances.values()):
                 state = self._state(appliance.id)
                 until = tariff_until(
@@ -319,9 +342,16 @@ class LoadShedder:
                     changed = True
                 elif until is None and state.shed:
                     await self._release(appliance, state)
+                    released.add(appliance.id)
                     changed = True
             if changed:
                 self._save()
+            if color is not Color.UNKNOWN and color != self._schedule_color:
+                # A new Tempo day: each appliance follows the schedule of its colour.
+                self._schedule_color = color
+                for appliance in list(self.appliances.values()):
+                    if appliance.id not in released and not self._state(appliance.id).shed:
+                        await self._follow_schedule(appliance, color)
         async_dispatcher_send(self.hass, signal_update(self.entry_id))
 
     def _state(self, appliance_id: str) -> ShedState:
@@ -348,7 +378,13 @@ class LoadShedder:
             if state.running:
                 await self._notify(appliance, "running", until)
 
-    async def _release(self, appliance: Appliance, state: ShedState) -> None:
+    async def _release(
+        self, appliance: Appliance, state: ShedState, follow_schedule: bool = True
+    ) -> None:
+        self.states[appliance.id] = ShedState()
+        # With a schedule for today's colour, it says what the appliance does next.
+        if follow_schedule and await self._follow_schedule(appliance, self.color()):
+            return
         current = self.hass.states.get(appliance.entity_id)
         if appliance.behaviour is Behaviour.OFF:
             if state.saved == "on" and not _missing(current) and _on_off(current) == "off":
@@ -357,7 +393,48 @@ class LoadShedder:
             mode = _mode(appliance, current)
             if state.saved and mode == appliance.reduced_option and state.saved != mode:
                 await self._set_mode(appliance, state.saved)
-        self.states[appliance.id] = ShedState()
+
+    # --- Schedules --------------------------------------------------------
+
+    @callback
+    def _on_schedule(self, event: Event[EventStateChangedData]) -> None:
+        self.hass.async_create_task(
+            self._async_schedule_changed(event.data["entity_id"], event.data["new_state"])
+        )
+
+    async def _async_schedule_changed(self, entity_id: str, new: State | None) -> None:
+        if _missing(new):
+            return
+        async with self._lock:
+            color = self.color()
+            for appliance in list(self.appliances.values()):
+                if (
+                    appliance.enabled
+                    and appliance.schedule_for(color) == entity_id
+                    and not self._state(appliance.id).shed
+                ):
+                    await self._apply(appliance, scheduled_state(appliance, new.state == "on"))
+
+    async def _follow_schedule(self, appliance: Appliance, color: Color) -> bool:
+        """Put the appliance where its schedule for `color` wants it; False without one."""
+        if not appliance.enabled or (schedule := appliance.schedule_for(color)) is None:
+            return False
+        state = self.hass.states.get(schedule)
+        if _missing(state):
+            return False
+        await self._apply(appliance, scheduled_state(appliance, state.state == "on"))
+        return True
+
+    async def _apply(self, appliance: Appliance, target: str | None) -> None:
+        current = self.hass.states.get(appliance.entity_id)
+        if target is None or _missing(current):
+            return
+        if appliance.behaviour is Behaviour.OFF:
+            if _on_off(current) != target:
+                service = "turn_on" if target == "on" else "turn_off"
+                await self._call(appliance.domain, service, appliance.entity_id)
+        elif appliance.behaviour is Behaviour.REDUCED and _mode(appliance, current) != target:
+            await self._set_mode(appliance, target)
 
     # --- Appliances changed by someone else --------------------------------
 
@@ -470,6 +547,16 @@ class LoadShedder:
             {**a.to_dict(), "status": self.status(a.id).to_dict()}
             for a in sorted(self.appliances.values(), key=lambda a: (a.priority, a.name))
         ]
+
+
+def _schedules_of(appliance: Appliance) -> tuple:
+    return (
+        appliance.schedule_blue,
+        appliance.schedule_white,
+        appliance.schedule_red,
+        appliance.normal_option,
+        appliance.enabled,
+    )
 
 
 def _drives_otherwise(old: Appliance, new: Appliance) -> bool:

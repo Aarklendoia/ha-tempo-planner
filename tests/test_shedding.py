@@ -123,3 +123,61 @@ def test_current_color_at_the_start_of_the_day():
     assert current_color(Color.RED, at(26, 6), None, start) is Color.RED
     assert current_color(Color.RED, at(26, 6), Color.UNKNOWN, start) is Color.RED
     assert current_color(Color.UNKNOWN, None, Color.RED, start) is Color.RED
+
+
+def test_schedules():
+    from custom_components.tempo_planner.shedding import scheduled_state
+
+    tree = Appliance(
+        id="t",
+        name="Tree",
+        entity_id="light.tree",
+        schedule_blue="schedule.tree",
+        schedule_white="schedule.tree_white",
+    )
+    assert tree.schedule_for(Color.BLUE) == "schedule.tree"
+    assert tree.schedule_for(Color.WHITE) == "schedule.tree_white"
+    assert tree.schedule_for(Color.RED) is None
+    assert tree.schedule_for(Color.UNKNOWN) is None
+    assert tree.schedules == ["schedule.tree", "schedule.tree_white"]
+    assert scheduled_state(tree, True) == "on"
+    assert scheduled_state(tree, False) == "off"
+    assert Appliance.from_dict(tree.to_dict()) == tree
+
+    radiator = Appliance(
+        id="r",
+        name="R",
+        entity_id="input_select.r",
+        behaviour=Behaviour.REDUCED,
+        reduced_option="Eco",
+        normal_option="Confort",
+        schedule_blue="schedule.r",
+    )
+    assert scheduled_state(radiator, True) == "Confort"
+    assert scheduled_state(radiator, False) == "Eco"
+    assert problems(radiator) == []
+
+
+def test_schedule_problems():
+    assert problems(
+        Appliance(
+            id="r",
+            name="R",
+            entity_id="input_select.r",
+            behaviour=Behaviour.REDUCED,
+            reduced_option="Eco",
+            schedule_blue="schedule.r",
+        )
+    ) == ["normal_option_missing"]
+    assert problems(
+        Appliance(
+            id="c",
+            name="C",
+            entity_id="sensor.c",
+            behaviour=Behaviour.ALERT,
+            schedule_red="schedule.c",
+        )
+    ) == ["alert_has_no_schedule"]
+    assert problems(
+        Appliance(id="t", name="T", entity_id="light.t", schedule_blue="input_boolean.t")
+    ) == ["schedule_not_a_schedule"]
