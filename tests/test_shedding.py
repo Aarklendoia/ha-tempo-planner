@@ -108,3 +108,18 @@ def test_round_trip():
     data = appliance.to_dict()
     assert data["colors"] == ["red", "white"]
     assert Appliance.from_dict(data) == appliance
+
+
+def test_current_color_at_the_start_of_the_day():
+    from custom_components.tempo_planner.shedding import current_color
+
+    start = at(27, 6)
+    # 06:00:00, the entity still shows yesterday's red: the announced white wins.
+    assert current_color(Color.RED, at(26, 6), Color.WHITE, start) is Color.WHITE
+    # Updated since the day started: the entity wins.
+    assert current_color(Color.WHITE, at(27, 6, 1), Color.WHITE, start) is Color.WHITE
+    assert current_color(Color.BLUE, at(27, 6, 1), Color.WHITE, start) is Color.BLUE
+    # Nothing announced: the entity, as before.
+    assert current_color(Color.RED, at(26, 6), None, start) is Color.RED
+    assert current_color(Color.RED, at(26, 6), Color.UNKNOWN, start) is Color.RED
+    assert current_color(Color.UNKNOWN, None, Color.RED, start) is Color.RED
