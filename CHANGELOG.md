@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.7.3...v0.8.0) (2026-11-25)
+
+
+### Features
+
+* per-colour schedules for appliances ([#43](https://github.com/Aarklendoia/ha-tempo-planner/issues/43)) ([fbac2c6](https://github.com/Aarklendoia/ha-tempo-planner/commit/fbac2c6c7cef18930b45531c7039fa5166a32cd4))
+
 ## [0.7.3](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.7.2...v0.7.3) (2026-11-25)
 
 
