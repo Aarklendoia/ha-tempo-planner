@@ -55,6 +55,14 @@ def _entities_schema(values: dict[str, Any]) -> vol.Schema:
     return vol.Schema(fields)
 
 
+def _entities_errors(values: dict[str, Any]) -> dict[str, str]:
+    """The car's meter is taken out of the house's: the same meter would leave nothing."""
+    car = values.get(const.CONF_CAR_ENERGY)
+    if car and car == values.get(const.CONF_HOUSE_ENERGY):
+        return {const.CONF_CAR_ENERGY: "same_meter"}
+    return {}
+
+
 def _num(lo: float, hi: float, step: float, unit: str) -> selector.NumberSelector:
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
@@ -117,10 +125,13 @@ class TempoPlannerConfigFlow(ConfigFlow, domain=const.DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         await self.async_set_unique_id(const.DOMAIN)
         self._abort_if_unique_id_configured()
-        if user_input is not None:
+        errors: dict[str, str] = {}
+        if user_input is not None and not (errors := _entities_errors(user_input)):
             self._entities = user_input
             return await self.async_step_settings()
-        return self.async_show_form(step_id="user", data_schema=_entities_schema({}))
+        return self.async_show_form(
+            step_id="user", data_schema=_entities_schema(user_input or {}), errors=errors
+        )
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
@@ -145,13 +156,17 @@ class TempoPlannerOptionsFlow(OptionsFlowWithReload):
         self._entities: dict[str, Any] = {}
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        if user_input is not None:
+        errors: dict[str, str] = {}
+        if user_input is not None and not (errors := _entities_errors(user_input)):
             # An optional field left empty is absent: it must also clear the old value.
             self._entities = {k: user_input.get(k) for k in const.ENTITY_KEYS}
             return await self.async_step_settings()
         return self.async_show_form(
             step_id="init",
-            data_schema=_entities_schema(entry_config(self.config_entry)),
+            data_schema=_entities_schema(
+                user_input if user_input is not None else entry_config(self.config_entry)
+            ),
+            errors=errors,
         )
 
     async def async_step_settings(

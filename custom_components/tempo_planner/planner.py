@@ -174,7 +174,8 @@ def peak_totals(hours: list[tuple[datetime, float]], settings: Settings) -> dict
     """Peak-hour consumption of each day whose every peak hour is known.
 
     `hours` holds the start of each hour, in local time, and the energy the house
-    used during it.
+    used during it. A day that adds up to nothing is left out: a house always
+    uses something over its peak hours, so the meter or the car's subtraction failed.
     """
     per_day: dict[date, list[float]] = defaultdict(list)
     for start, kwh in hours:
@@ -184,7 +185,9 @@ def peak_totals(hours: list[tuple[datetime, float]], settings: Settings) -> dict
         datetime.combine(date.min, settings.offpeak_start)
         - datetime.combine(date.min, settings.offpeak_end)
     ) // timedelta(hours=1)
-    return {day: sum(v) for day, v in per_day.items() if len(v) == peak_hours}
+    return {
+        day: total for day, v in per_day.items() if len(v) == peak_hours and (total := sum(v)) > 0
+    }
 
 
 def peak_load_from_history(

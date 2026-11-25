@@ -83,6 +83,9 @@
         "description": "Ce que le planificateur doit savoir de la maison. Tout se change plus tard dans les options de l'intégration."
       }
     },
+    "error": {
+      "same_meter": "Le compteur de la voiture est retiré de celui de la maison : choisissez le compteur de la borne, pas celui de la maison."
+    },
     "abort": {
       "already_configured": "Tempo Planner est déjà configuré."
     }
@@ -169,6 +172,9 @@
         },
         "description": "Ce que le planificateur doit savoir de la maison."
       }
+    },
+    "error": {
+      "same_meter": "Le compteur de la voiture est retiré de celui de la maison : choisissez le compteur de la borne, pas celui de la maison."
     }
   },
   "entity": {
