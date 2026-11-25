@@ -66,6 +66,41 @@ const TEXTS = {
     schedules_help:
       "Optional. On a day of that colour the appliance is on (or in its normal mode) while the schedule is on, off (or reduced) otherwise, at each change of the schedule. Shedding wins over schedules.",
     schedules: "schedules: {colors}",
+    power: "Power",
+    field_hard_only: "Hard limit only (stopping it costs, like a car's charge)",
+    hard_only: "hard limit only",
+    power_now: "Drawn from the grid",
+    power_off: "Load shedding by power is off.",
+    power_no_reading: "No reading from the power sensor.",
+    level_none: "Under the limits",
+    level_soft: "Over the soft limit",
+    level_hard: "Over the hard limit",
+    soft_limit: "Soft limit {value} kW",
+    hard_limit: "Hard limit {value} kW",
+    power_settings: "Settings",
+    power_help:
+      "Over the soft limit, appliances are shed one at a time by priority, after a delay; a reduced mode first. Over the hard limit, as many as needed, fast. They come back one at a time, the last first, once there is room for them.",
+    power_order: "Shedding order",
+    power_order_help: "Shed from the top; alert-only appliances can't be shed by power.",
+    up: "Up",
+    down: "Down",
+    unknown_power: "power unknown",
+    field_power_entity_grid: "Power drawn from the grid",
+    field_soft_limit_kw: "Soft limit: not above, if possible (kW)",
+    field_hard_limit_kw: "Hard limit: never for long (kW)",
+    field_restore_margin_kw: "Margin before bringing one back (kW)",
+    field_soft_delay_s: "Delay over the soft limit (s)",
+    field_hard_delay_s: "Delay over the hard limit (s)",
+    field_restore_delay_s: "Delay before bringing one back (s)",
+    field_power_enabled: "Load shedding by power",
+    field_soft_limits: "Soft limit by colour and period",
+    field_blue_peak: "Blue, peak hours (kW)",
+    field_blue_offpeak: "Blue, off-peak hours (kW)",
+    field_white_peak: "White, peak hours (kW)",
+    field_white_offpeak: "White, off-peak hours (kW)",
+    field_red_peak: "Red, peak hours (kW)",
+    field_red_offpeak: "Red, off-peak hours (kW)",
+    saved: "Saved.",
     help_off: "Turned off, back on afterwards if it was on. Turned back on by someone: off again, with a notification.",
     help_reduced: "A mode is forced (Eco, a preset…), the previous one restored afterwards.",
     help_alert: "Nothing is driven: a notification when it starts running while shed.",
@@ -131,6 +166,42 @@ const TEXTS = {
     schedules_help:
       "Facultatif. Un jour de cette couleur, l'appareil est allumé (ou dans son mode normal) tant que le planning est actif, éteint (ou réduit) sinon, à chaque changement du planning. Le délestage passe avant les plannings.",
     schedules: "plannings : {colors}",
+    power: "Puissance",
+    field_hard_only: "Seuil dur seulement (le couper coûte, comme la charge d'une voiture)",
+    hard_only: "seuil dur seulement",
+    power_now: "Tiré du réseau",
+    power_off: "Le délestage en puissance est désactivé.",
+    power_no_reading: "Aucune mesure du capteur de puissance.",
+    level_none: "Sous les seuils",
+    level_soft: "Au-dessus du seuil souple",
+    level_hard: "Au-dessus du seuil dur",
+    soft_limit: "Seuil souple {value} kW",
+    hard_limit: "Seuil dur {value} kW",
+    power_settings: "Réglages",
+    power_help:
+      "Au-dessus du seuil souple, les appareils sont délestés un par un par priorité, après une temporisation ; le mode réduit d'abord. Au-dessus du seuil dur, autant qu'il faut, vite. Ils reviennent un par un, le dernier d'abord, quand il y a la place.",
+    power_order: "Ordre de délestage",
+    power_order_help:
+      "Délestés en commençant par le haut ; les appareils en alerte seulement ne peuvent pas l'être en puissance.",
+    up: "Monter",
+    down: "Descendre",
+    unknown_power: "puissance inconnue",
+    field_power_entity_grid: "Puissance tirée du réseau",
+    field_soft_limit_kw: "Seuil souple : à ne pas dépasser si possible (kW)",
+    field_hard_limit_kw: "Seuil dur : jamais longtemps (kW)",
+    field_restore_margin_kw: "Marge avant de relancer un appareil (kW)",
+    field_soft_delay_s: "Temporisation au-dessus du seuil souple (s)",
+    field_hard_delay_s: "Temporisation au-dessus du seuil dur (s)",
+    field_restore_delay_s: "Temporisation avant de relancer (s)",
+    field_power_enabled: "Délestage en puissance",
+    field_soft_limits: "Seuil souple par couleur et période",
+    field_blue_peak: "Bleu, heures pleines (kW)",
+    field_blue_offpeak: "Bleu, heures creuses (kW)",
+    field_white_peak: "Blanc, heures pleines (kW)",
+    field_white_offpeak: "Blanc, heures creuses (kW)",
+    field_red_peak: "Rouge, heures pleines (kW)",
+    field_red_offpeak: "Rouge, heures creuses (kW)",
+    saved: "Enregistré.",
     help_off: "Coupé, puis rallumé s'il l'était. Rallumé par quelqu'un : recoupé, avec une notification.",
     help_reduced: "Un mode est imposé (Eco, un preset…), puis le précédent est remis.",
     help_alert: "Rien n'est piloté : une notification quand il se met à fonctionner pendant le délestage.",
@@ -150,6 +221,8 @@ const OFF_DOMAINS = [
 ];
 const REDUCED_DOMAINS = ["select", "input_select", "climate", "water_heater"];
 const COLORS = ["blue", "white", "red"];
+// The power form shares some field names with the appliance form.
+const POWER_LABELS = { power_entity: "field_power_entity_grid", enabled: "field_power_enabled" };
 
 const EMPTY = {
   name: "",
@@ -166,6 +239,7 @@ const EMPTY = {
   power_entity: null,
   power_kw: null,
   enabled: true,
+  hard_only: false,
   schedule_blue: null,
   schedule_white: null,
   schedule_red: null,
@@ -206,6 +280,9 @@ class TempoPlannerPanel extends LitElement {
     _formError: { state: true },
     _saving: { state: true },
     _formsReady: { state: true },
+    _powerDraft: { state: true },
+    _powerError: { state: true },
+    _powerSaved: { state: true },
   };
 
   constructor() {
@@ -288,13 +365,13 @@ class TempoPlannerPanel extends LitElement {
         <div class="title">Tempo Planner</div>
       </div>
       <div class="tabs" role="tablist">
-        ${["now", "appliances"].map(
+        ${["now", "appliances", "power"].map(
           (tab) => html`
             <button
               role="tab"
               aria-selected=${this._tab === tab}
               class=${this._tab === tab ? "tab active" : "tab"}
-              @click=${() => (this._tab = tab)}
+              @click=${() => this._select(tab)}
             >
               ${this._t(tab)}
             </button>
@@ -309,7 +386,9 @@ class TempoPlannerPanel extends LitElement {
           ? html`<div class="loading">…</div>`
           : this._tab === "now"
             ? this._renderNow()
-            : this._renderAppliances()}
+            : this._tab === "appliances"
+              ? this._renderAppliances()
+              : this._renderPower()}
       </div>
     `;
   }
@@ -396,6 +475,7 @@ class TempoPlannerPanel extends LitElement {
       this._t("priority", { value: a.priority }),
     ];
     const scheduled = COLORS.filter((c) => a[`schedule_${c}`]);
+    if (a.hard_only) details.push(this._t("hard_only"));
     if (scheduled.length) {
       details.push(
         this._t("schedules", { colors: scheduled.map((c) => this._t(c).toLowerCase()).join(", ") }),
@@ -574,6 +654,7 @@ class TempoPlannerPanel extends LitElement {
         name: "power_kw",
         selector: { number: { min: 0, max: 50, step: 0.1, mode: "box", unit_of_measurement: "kW" } },
       },
+      { name: "hard_only", selector: { boolean: {} } },
       { name: "enabled", selector: { boolean: {} } },
     );
     return schema;
@@ -695,6 +776,213 @@ class TempoPlannerPanel extends LitElement {
     }
   }
 
+  // --- Power ---------------------------------------------------------------
+
+  async _select(tab) {
+    this._tab = tab;
+    if (tab === "power" && !this._formsReady) {
+      try {
+        await loadForms();
+        this._formsReady = true;
+      } catch (err) {
+        this._powerError = err.message || String(err);
+      }
+    }
+  }
+
+  _powerSettings() {
+    const { power_kw, level, soft_limit_now, hard_limit_now, ...settings } = this._snapshot.power;
+    return settings;
+  }
+
+  _applianceKw(a) {
+    const state = a.power_entity ? this.hass.states[a.power_entity] : null;
+    if (state && !isNaN(Number(state.state))) {
+      const unit = (state.attributes.unit_of_measurement || "W").toLowerCase();
+      return unit === "kw" ? Number(state.state) : Number(state.state) / 1000;
+    }
+    return a.power_kw;
+  }
+
+  _kw(value) {
+    return Number(value).toLocaleString(this.hass?.language, { maximumFractionDigits: 1 });
+  }
+
+  _renderPower() {
+    const p = this._snapshot.power;
+    const draft = this._powerDraft || this._powerSettings();
+    const order = this._snapshot.appliances.filter((a) => a.behaviour !== "alert");
+    return html`
+      <div class="card">
+        <h2>${this._t("power_now")}</h2>
+        ${!p.enabled
+          ? html`<p class="muted">${this._t("power_off")}</p>`
+          : p.power_kw === null || p.power_kw === undefined
+            ? html`<p class="muted">${this._t("power_no_reading")}</p>`
+            : this._renderGauge(p)}
+      </div>
+      <div class="card">
+        <h2>${this._t("power_order")}</h2>
+        <p class="muted">${this._t("power_order_help")}</p>
+        <ol class="order">
+          ${order.map((a, index) => {
+            const kw = this._applianceKw(a);
+            return html`<li>
+              <div class="grow">
+                <div class="name">${a.name}</div>
+                <div class="muted">
+                  ${kw === null || kw === undefined ? this._t("unknown_power") : `${this._kw(kw)} kW`}
+                  ${a.hard_only ? html` · ${this._t("hard_only")}` : nothing}
+                  ${a.status.shed
+                    ? html` · <span class="badge">${this._t("shed")}</span>`
+                    : nothing}
+                </div>
+              </div>
+              <button
+                class="icon"
+                title=${this._t("up")}
+                aria-label=${this._t("up")}
+                ?disabled=${index === 0}
+                @click=${() => this._move(order, index, -1)}
+              >
+                ▲
+              </button>
+              <button
+                class="icon"
+                title=${this._t("down")}
+                aria-label=${this._t("down")}
+                ?disabled=${index === order.length - 1}
+                @click=${() => this._move(order, index, 1)}
+              >
+                ▼
+              </button>
+            </li>`;
+          })}
+        </ol>
+      </div>
+      <div class="card editor">
+        <h2>${this._t("power_settings")}</h2>
+        <p class="muted">${this._t("power_help")}</p>
+        ${this._formsReady
+          ? html`<ha-form
+              .hass=${this.hass}
+              .data=${draft}
+              .schema=${this._powerSchema()}
+              .computeLabel=${(field) => this._t(POWER_LABELS[field.name] || `field_${field.name}`)}
+              @value-changed=${(ev) => {
+                this._powerDraft = { ...draft, ...ev.detail.value };
+                this._powerSaved = false;
+              }}
+            ></ha-form>`
+          : html`<div class="loading">…</div>`}
+        ${this._powerError
+          ? html`<div class="banner error">${this._t("error", { message: this._powerError })}</div>`
+          : nothing}
+        <div class="actions">
+          ${this._powerSaved ? html`<span class="muted">${this._t("saved")}</span>` : nothing}
+          <button
+            ?disabled=${!this._powerDraft}
+            @click=${() => {
+              this._powerDraft = null;
+              this._powerError = null;
+            }}
+          >
+            ${this._t("cancel")}
+          </button>
+          <button class="primary" ?disabled=${!this._powerDraft} @click=${this._savePower}>
+            ${this._t("save")}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderGauge(p) {
+    const top = Math.max(p.hard_limit_now || 0, p.soft_limit_now || 0, p.power_kw, 1) * 1.15;
+    const pct = (value) => `${Math.min(100, (Math.max(value, 0) / top) * 100)}%`;
+    return html`
+      <div class="power">
+        <span class="value">${this._kw(Math.max(p.power_kw, 0))} kW</span>
+        <span class="level ${p.level}">${this._t(`level_${p.level}`)}</span>
+      </div>
+      <div class="gauge" role="img" aria-label="${this._kw(p.power_kw)} kW">
+        <div class="fill ${p.level}" style="width: ${pct(p.power_kw)}"></div>
+        ${p.soft_limit_now !== null && p.soft_limit_now !== undefined
+          ? html`<div class="mark soft" style="left: ${pct(p.soft_limit_now)}"></div>`
+          : nothing}
+        ${p.hard_limit_now !== null && p.hard_limit_now !== undefined
+          ? html`<div class="mark hard" style="left: ${pct(p.hard_limit_now)}"></div>`
+          : nothing}
+      </div>
+      <div class="muted">
+        ${p.soft_limit_now !== null && p.soft_limit_now !== undefined
+          ? this._t("soft_limit", { value: this._kw(p.soft_limit_now) })
+          : nothing}
+        ${p.hard_limit_now !== null && p.hard_limit_now !== undefined
+          ? html` · ${this._t("hard_limit", { value: this._kw(p.hard_limit_now) })}`
+          : nothing}
+      </div>
+    `;
+  }
+
+  _powerSchema() {
+    const kw = { number: { min: 0, max: 100, step: 0.1, mode: "box", unit_of_measurement: "kW" } };
+    const seconds = { number: { min: 0, max: 3600, step: 5, mode: "box", unit_of_measurement: "s" } };
+    return [
+      { name: "enabled", selector: { boolean: {} } },
+      { name: "power_entity", selector: { entity: { domain: "sensor", device_class: "power" } } },
+      { name: "soft_limit_kw", selector: kw },
+      { name: "hard_limit_kw", selector: kw },
+      {
+        name: "soft_limits",
+        type: "expandable",
+        title: this._t("field_soft_limits"),
+        schema: ["blue", "white", "red"].flatMap((c) =>
+          ["peak", "offpeak"].map((period) => ({ name: `${c}_${period}`, selector: kw })),
+        ),
+      },
+      { name: "restore_margin_kw", selector: kw },
+      { name: "soft_delay_s", selector: seconds },
+      { name: "hard_delay_s", selector: seconds },
+      { name: "restore_delay_s", selector: seconds },
+    ];
+  }
+
+  async _savePower() {
+    this._powerError = null;
+    const power = { ...this._powerDraft };
+    for (const key of Object.keys(power)) {
+      if (power[key] === "" || power[key] === undefined) power[key] = null;
+    }
+    power.soft_limits = Object.fromEntries(
+      Object.entries(power.soft_limits || {}).filter(([, v]) => v !== null && v !== "" && v !== undefined),
+    );
+    try {
+      await this.hass.callWS({ type: "tempo_planner/power/save", power });
+      this._powerDraft = null;
+      this._powerSaved = true;
+    } catch (err) {
+      this._powerError = err.message || String(err);
+    }
+  }
+
+  async _move(order, index, step) {
+    const moved = [...order];
+    [moved[index], moved[index + step]] = [moved[index + step], moved[index]];
+    try {
+      for (const [priority, appliance] of moved.entries()) {
+        if (appliance.priority === priority) continue;
+        const { status, ...rest } = appliance;
+        await this.hass.callWS({
+          type: "tempo_planner/appliances/save",
+          appliance: { ...rest, priority },
+        });
+      }
+    } catch (err) {
+      this._error = err.message || String(err);
+    }
+  }
+
   async _delete(appliance) {
     if (!window.confirm(this._t("confirm_delete", { name: appliance.name }))) return;
     try {
@@ -766,6 +1054,82 @@ class TempoPlannerPanel extends LitElement {
       border: 1px solid var(--divider-color);
       box-shadow: var(--ha-card-box-shadow, none);
       padding: 16px;
+    }
+    .order {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      counter-reset: order;
+    }
+    .order li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      counter-increment: order;
+    }
+    .order li::before {
+      content: counter(order);
+      width: 24px;
+      color: var(--secondary-text-color);
+      font-weight: 500;
+    }
+    .order li + li {
+      border-top: 1px solid var(--divider-color);
+    }
+    button.icon {
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+    .power {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .power .value {
+      font-size: 32px;
+      font-weight: 400;
+    }
+    .level {
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--success-color, #43a047);
+      color: #fff;
+    }
+    .level.soft,
+    .fill.soft {
+      background: var(--warning-color, #ffa600);
+    }
+    .level.hard,
+    .fill.hard {
+      background: var(--error-color, #db4437);
+    }
+    .gauge {
+      position: relative;
+      height: 12px;
+      margin: 12px 0 8px;
+      border-radius: 6px;
+      background: var(--divider-color);
+      overflow: hidden;
+    }
+    .fill {
+      height: 100%;
+      background: var(--success-color, #43a047);
+      transition: width 0.3s;
+    }
+    .mark {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--primary-text-color);
+      opacity: 0.6;
+    }
+    .mark.hard {
+      opacity: 1;
     }
     .editor h3 {
       margin: 24px 0 0;

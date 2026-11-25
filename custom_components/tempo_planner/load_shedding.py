@@ -15,7 +15,11 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant, Stat
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    async_track_time_change,
+    async_track_time_interval,
+)
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -24,11 +28,19 @@ from .planner import Color, Settings, parse_color, tempo_day
 from .shedding import (
     Appliance,
     Behaviour,
+    Candidate,
+    PowerLevel,
+    PowerSettings,
+    PowerShed,
+    PowerTimers,
     ShedReason,
     current_color,
     is_running,
+    power_level,
+    power_step,
     scheduled_state,
     tariff_until,
+    to_kw,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,6 +48,11 @@ _LOGGER = logging.getLogger(__name__)
 STORAGE_VERSION = 1
 
 _MISSING = (None, STATE_UNAVAILABLE, STATE_UNKNOWN)
+
+# The power delays are counted on this tick, between readings.
+POWER_TICK = timedelta(seconds=5)
+# Below this, an appliance draws nothing worth shedding.
+IDLE_KW = 0.05
 
 # Service and field that force a mode, and where the current mode is read.
 _MODES: dict[str, tuple[str, str, str | None]] = {
@@ -53,6 +70,7 @@ _TEXTS = {
         "mode_changed": "{name} left its reduced mode while shed: set back until {until}."
         " Turn its load shedding off to keep it.",
         "running": "{name} runs while it should not, until {until}.",
+        "until_power": "the power comes down",
     },
     "fr": {
         "title": "⚡ Délestage",
@@ -61,6 +79,7 @@ _TEXTS = {
         "mode_changed": "{name} a quitté son mode réduit pendant le délestage : remis jusqu'à"
         " {until}. Désactive son délestage pour le garder.",
         "running": "{name} fonctionne alors qu'il ne devrait pas, jusqu'à {until}.",
+        "until_power": "ce que la consommation baisse",
     },
 }
 
@@ -89,6 +108,9 @@ class ShedState:
     # The state seen when the shedding started (its context): no override, even
     # when its change event is handled after the start.
     seen: str | None = None
+    # Shed by power: when, and what it drew then.
+    since: datetime | None = None
+    power_kw: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -98,6 +120,8 @@ class ShedState:
             "saved": self.saved,
             "running": self.running,
             "seen": self.seen,
+            "since": self.since.isoformat() if self.since else None,
+            "power_kw": self.power_kw,
         }
 
     @classmethod
@@ -109,6 +133,8 @@ class ShedState:
             saved=data.get("saved"),
             running=bool(data.get("running")),
             seen=data.get("seen"),
+            since=dt_util.parse_datetime(t) if (t := data.get("since")) else None,
+            power_kw=data.get("power_kw"),
         )
 
 
@@ -134,6 +160,12 @@ class LoadShedder:
         self._unsub_schedules: Callable[[], None] | None = None
         # The colour whose schedules the appliances follow; they switch when it changes.
         self._schedule_color: Color | None = None
+        # Load shedding by power.
+        self.power = PowerSettings()
+        self.power_kw: float | None = None
+        self.level = PowerLevel.NONE
+        self._timers = PowerTimers()
+        self._unsub_power: list[Callable[[], None]] = []
 
     # --- Life cycle -------------------------------------------------------
 
@@ -152,6 +184,10 @@ class LoadShedder:
             for key, data in stored.get("states", {}).items()
             if key in self.appliances
         }
+        try:
+            self.power = PowerSettings.from_dict(stored.get("power") or {})
+        except (TypeError, ValueError):
+            _LOGGER.warning("Ignoring stored power settings that cannot be read")
         for day, color in stored.get("announced", {}).items():
             try:
                 self._announced[date.fromisoformat(day)] = Color(color)
@@ -184,6 +220,7 @@ class LoadShedder:
         # like an automation, so a manual change made meanwhile is kept.
         self._schedule_color = self.color()
         await self.async_evaluate()
+        self._start_power()
 
     async def async_stop(self) -> None:
         """Stop acting; appliances stay as they are and are taken over on the next start."""
@@ -192,6 +229,7 @@ class LoadShedder:
             unsub()
         self._unsubs.clear()
         self._unwatch()
+        self._stop_power()
 
     @callback
     def _unwatch(self) -> None:
@@ -334,13 +372,24 @@ class LoadShedder:
                     and now < state.until
                 ):
                     continue
-                if until is not None and not state.shed:
+                if state.shed and not appliance.enabled:
+                    # Its switch is off: handed back, whatever the reason.
+                    await self._release(appliance, state)
+                    released.add(appliance.id)
+                    changed = True
+                elif until is not None and not state.shed:
                     await self._shed(appliance, state, until)
+                    changed = True
+                elif until is not None and state.reason is ShedReason.POWER:
+                    # Already shed by power: the tariff takes over, with the same
+                    # state to restore.
+                    state.reason, state.until = ShedReason.TARIFF, until
+                    state.since = state.power_kw = None
                     changed = True
                 elif until is not None and state.until != until:
                     state.until = until
                     changed = True
-                elif until is None and state.shed:
+                elif until is None and state.shed and state.reason is ShedReason.TARIFF:
                     await self._release(appliance, state)
                     released.add(appliance.id)
                     changed = True
@@ -357,8 +406,14 @@ class LoadShedder:
     def _state(self, appliance_id: str) -> ShedState:
         return self.states.setdefault(appliance_id, ShedState())
 
-    async def _shed(self, appliance: Appliance, state: ShedState, until: datetime) -> None:
-        state.shed, state.reason, state.until = True, ShedReason.TARIFF, until
+    async def _shed(
+        self,
+        appliance: Appliance,
+        state: ShedState,
+        until: datetime | None,
+        reason: ShedReason = ShedReason.TARIFF,
+    ) -> None:
+        state.shed, state.reason, state.until = True, reason, until
         if (seen := self.hass.states.get(appliance.watched_entity)) is not None:
             state.seen = seen.context.id
         current = self.hass.states.get(appliance.entity_id)
@@ -496,6 +551,144 @@ class LoadShedder:
             return True
         return False
 
+    # --- Load shedding by power ----------------------------------------------
+
+    @callback
+    def _start_power(self) -> None:
+        if not self.power.enabled or not self.power.power_entity:
+            return
+        self._unsub_power = [
+            async_track_state_change_event(
+                self.hass, self.power.power_entity, self._on_power_reading
+            ),
+            async_track_time_interval(self.hass, self._on_power_tick, POWER_TICK),
+        ]
+
+    @callback
+    def _stop_power(self) -> None:
+        for unsub in self._unsub_power:
+            unsub()
+        self._unsub_power = []
+        self._timers = PowerTimers()
+
+    @callback
+    def _on_power_reading(self, _: Event[EventStateChangedData]) -> None:
+        self.hass.async_create_task(self.async_power_step())
+
+    @callback
+    def _on_power_tick(self, _: datetime) -> None:
+        self.hass.async_create_task(self.async_power_step())
+
+    async def async_save_power(self, data: dict[str, Any]) -> PowerSettings:
+        """New power settings: what was shed by power comes back, then it starts over."""
+        settings = PowerSettings.from_dict(data)
+        self._stop_power()
+        async with self._lock:
+            for appliance in list(self.appliances.values()):
+                state = self._state(appliance.id)
+                if state.shed and state.reason is ShedReason.POWER:
+                    await self._release(appliance, state)
+            self.power = settings
+            self.level, self.power_kw = PowerLevel.NONE, None
+            self._save()
+        self._start_power()
+        await self.async_power_step()
+        async_dispatcher_send(self.hass, signal_update(self.entry_id))
+        return settings
+
+    async def async_set_power_enabled(self, enabled: bool) -> None:
+        await self.async_save_power({**self.power.to_dict(), "enabled": enabled})
+
+    def limits(self) -> tuple[float | None, float | None]:
+        """The soft and hard limits now, in kW."""
+        now = dt_util.now().time()
+        offpeak = not (self._settings.offpeak_end <= now < self._settings.offpeak_start)
+        return self.power.soft_for(self.color(), offpeak), self.power.hard_limit_kw
+
+    def _read_kw(self, entity_id: str | None) -> float | None:
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if _missing(state):
+            return None
+        return to_kw(state.state, state.attributes.get("unit_of_measurement"))
+
+    def _draws(self, appliance: Appliance) -> tuple[bool, float | None]:
+        """Whether shedding the appliance frees something, and how much (None: unknown)."""
+        current = self.hass.states.get(appliance.entity_id)
+        if _missing(current):
+            return False, None
+        if appliance.behaviour is Behaviour.OFF and _on_off(current) == "off":
+            return False, None
+        if appliance.behaviour is Behaviour.REDUCED and (
+            _mode(appliance, current) == appliance.reduced_option
+        ):
+            return False, None
+        measured = self._read_kw(appliance.power_entity)
+        if measured is not None:
+            return measured > IDLE_KW, measured
+        return True, appliance.power_kw
+
+    async def async_power_step(self) -> None:
+        """Shed or bring back one step by the power drawn now."""
+        if not self.power.enabled or not self.power.power_entity:
+            return
+        now = dt_util.now()
+        async with self._lock:
+            power_kw = self._read_kw(self.power.power_entity)
+            soft, hard = self.limits()
+            candidates = []
+            for appliance in sorted(self.appliances.values(), key=lambda a: (a.priority, a.name)):
+                if (
+                    not appliance.enabled
+                    or appliance.behaviour is Behaviour.ALERT
+                    or self._state(appliance.id).shed
+                ):
+                    continue
+                draws, kw = self._draws(appliance)
+                if draws:
+                    candidates.append(Candidate(appliance, kw))
+            shed = sorted(
+                (
+                    (state.since or now, PowerShed(appliance_id, state.power_kw))
+                    for appliance_id, state in self.states.items()
+                    if state.shed and state.reason is ShedReason.POWER
+                ),
+                key=lambda item: item[0],
+            )
+            decision = power_step(
+                now,
+                power_kw,
+                soft,
+                hard,
+                self.power,
+                self._timers,
+                [p for _, p in shed],
+                candidates,
+            )
+            freed = {c.appliance.id: c.power_kw for c in candidates}
+            for appliance_id in decision.shed:
+                state = self._state(appliance_id)
+                await self._shed(self.appliances[appliance_id], state, None, ShedReason.POWER)
+                state.since, state.power_kw = now, freed.get(appliance_id)
+            for appliance_id in decision.restore:
+                if (appliance := self.appliances.get(appliance_id)) is not None:
+                    await self._release(appliance, self._state(appliance_id))
+            if decision.shed or decision.restore:
+                self._save()
+            level = power_level(power_kw, soft, hard)
+            moved = (
+                level is not self.level
+                or (power_kw is None) != (self.power_kw is None)
+                or (
+                    power_kw is not None
+                    and self.power_kw is not None
+                    and abs(power_kw - self.power_kw) >= 0.1
+                )
+            )
+            if moved:
+                self.level, self.power_kw = level, power_kw
+        if decision.shed or decision.restore or moved:
+            async_dispatcher_send(self.hass, signal_update(self.entry_id))
+
     # --- Service calls ----------------------------------------------------
 
     async def _call(self, domain: str, service: str, entity_id: str, **data: Any) -> None:
@@ -516,7 +709,7 @@ class LoadShedder:
         if not appliance.notify:
             return
         texts = _TEXTS.get(self.hass.config.language.split("-")[0], _TEXTS["en"])
-        local = dt_util.as_local(until).strftime("%H:%M") if until else "?"
+        local = dt_util.as_local(until).strftime("%H:%M") if until else texts["until_power"]
         message = texts[key].format(name=appliance.name, until=local)
         domain, service = appliance.notify.split(".", 1)
         try:
@@ -536,6 +729,7 @@ class LoadShedder:
             "appliances": [a.to_dict() for a in self.appliances.values()],
             "states": {k: s.to_dict() for k, s in self.states.items() if s.shed},
             "announced": {d.isoformat(): str(c) for d, c in self._announced.items()},
+            "power": self.power.to_dict(),
         }
 
     def status(self, appliance_id: str) -> ShedState:
