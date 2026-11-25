@@ -399,11 +399,25 @@
       },
       "shed_appliances": {
         "name": "Shed appliances"
+      },
+      "power_headroom": {
+        "name": "Power headroom"
+      },
+      "power_level": {
+        "name": "Load shedding level",
+        "state": {
+          "none": "None",
+          "soft": "Soft",
+          "hard": "Hard"
+        }
       }
     },
     "switch": {
       "shed_enabled": {
         "name": "Shed {appliance}"
+      },
+      "power_shedding": {
+        "name": "Power load shedding"
       }
     }
   }

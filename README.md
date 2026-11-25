@@ -105,6 +105,21 @@ colour without a schedule leaves the appliance alone; shedding always wins,
 and when it ends the schedule says what the appliance does next. The
 appliance's switch turns its schedules off too.
 
+**Load shedding by power** (optional): from a sensor of the power drawn from
+the grid, two limits keep the house under its subscription. Over the **soft
+limit** (not above, if possible; it can differ by colour and period, e.g. 3 kW
+on red peak hours) appliances are shed one at a time by priority, after a delay
+(2 min by default), a reduced mode being a step of its own; appliances marked
+*hard limit only* (a car's charge) are left alone. Over the **hard limit** (the
+subscription's) as many as needed are shed after a few seconds, from their power
+sensor or declared power. They come back one at a time, the last one first, once
+the power plus theirs stays a margin under the soft limit for a while (5 min by
+default). Alert-only appliances can't be shed by power; an appliance shed by
+power when a red day starts is taken over by the tariff. Entities: *Power load
+shedding* (switch), *Power headroom* (kW before the soft limit) and *Load
+shedding level* (`none`, `soft`, `hard`). The panel has a *Power* tab: the power
+now against the limits, the shedding order (up/down) and the settings.
+
 At 06:00 the current colour entity of RTE Tempo lags a few seconds behind: the
 colour announced the day before is used until it catches up.
 
@@ -253,6 +268,16 @@ se gèrent dans le panneau **Tempo Planner** de la barre latérale (administrate
 l'onglet *Maintenant* montre les couleurs du jour et du lendemain, la période
 tarifaire et ce qui est délesté jusqu'à quand ; l'onglet *Appareils* permet
 d'ajouter, modifier, supprimer et activer ou non leur délestage.
+
+**Délestage en puissance** : d'après un capteur de la puissance tirée du
+réseau, au-dessus d'un **seuil souple** (à ne pas dépasser si possible,
+réglable par couleur et période) les appareils sont délestés un par un par
+priorité après une temporisation, le mode réduit d'abord ; au-dessus d'un
+**seuil dur** (l'abonnement), autant qu'il faut, en quelques secondes, y compris
+ceux marqués « seuil dur seulement » (la borne de la voiture). Ils reviennent un
+par un, le dernier d'abord, quand il y a la place. L'onglet *Puissance* du
+panneau montre la puissance face aux seuils, l'ordre de délestage et les
+réglages.
 
 Installation par HACS (dépôt personnalisé ci-dessus), puis *Paramètres →
 Appareils et services → Ajouter une intégration → Tempo Planner*. Seule la

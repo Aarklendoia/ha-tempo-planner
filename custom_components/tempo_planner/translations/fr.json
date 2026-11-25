@@ -399,11 +399,25 @@
       },
       "shed_appliances": {
         "name": "Appareils délestés"
+      },
+      "power_headroom": {
+        "name": "Marge de puissance"
+      },
+      "power_level": {
+        "name": "Niveau de délestage",
+        "state": {
+          "none": "Aucun",
+          "soft": "Souple",
+          "hard": "Dur"
+        }
       }
     },
     "switch": {
       "shed_enabled": {
         "name": "Délester {appliance}"
+      },
+      "power_shedding": {
+        "name": "Délestage en puissance"
       }
     }
   }

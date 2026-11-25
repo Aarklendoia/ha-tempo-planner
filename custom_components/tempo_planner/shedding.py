@@ -13,7 +13,7 @@ from datetime import datetime, time, timedelta
 from enum import StrEnum
 from typing import Any
 
-from .planner import Color
+from .planner import Color, price_key
 
 
 class Behaviour(StrEnum):
@@ -38,6 +38,15 @@ class ShedReason(StrEnum):
     """Why an appliance is shed."""
 
     TARIFF = "tariff"
+    POWER = "power"
+
+
+class PowerLevel(StrEnum):
+    """How hard the house is shedding by power."""
+
+    NONE = "none"
+    SOFT = "soft"
+    HARD = "hard"
 
 
 # Domains each behaviour can drive.
@@ -88,6 +97,8 @@ class Appliance:
     schedule_red: str | None = None
     # The mode while a schedule is on, for the reduced behaviour.
     normal_option: str | None = None
+    # Shed by power above the hard limit only (stopping it costs, like a car's charge).
+    hard_only: bool = False
 
     @property
     def domain(self) -> str:
@@ -143,6 +154,7 @@ class Appliance:
             schedule_white=data.get("schedule_white"),
             schedule_red=data.get("schedule_red"),
             normal_option=data.get("normal_option"),
+            hard_only=bool(data.get("hard_only", False)),
         )
 
 
@@ -229,3 +241,178 @@ def scheduled_state(appliance: Appliance, schedule_on: bool) -> str | None:
     if appliance.behaviour is Behaviour.REDUCED:
         return appliance.normal_option if schedule_on else appliance.reduced_option
     return None
+
+
+@dataclass(frozen=True)
+class PowerSettings:
+    """Load shedding by power: what to read and the limits to keep under."""
+
+    enabled: bool = False
+    # The power drawn from the grid, in W or kW.
+    power_entity: str | None = None
+    # Not above, if possible: shed gently, one appliance at a time.
+    soft_limit_kw: float | None = None
+    # Never for long: shed fast, as many as needed.
+    hard_limit_kw: float | None = None
+    # The soft limit by colour and period, keyed like the prices ("red_peak").
+    soft_limits: dict[str, float] = field(default_factory=dict)
+    # An appliance comes back only this far under the soft limit, with its own power.
+    restore_margin_kw: float = 0.5
+    soft_delay_s: int = 120
+    hard_delay_s: int = 5
+    restore_delay_s: int = 300
+
+    def soft_for(self, color: Color, offpeak: bool) -> float | None:
+        override = self.soft_limits.get(price_key(color, offpeak))
+        return override if override is not None else self.soft_limit_kw
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PowerSettings:
+        default = cls()
+        return cls(
+            enabled=bool(data.get("enabled", default.enabled)),
+            power_entity=data.get("power_entity"),
+            soft_limit_kw=_float(data.get("soft_limit_kw")),
+            hard_limit_kw=_float(data.get("hard_limit_kw")),
+            soft_limits={
+                k: float(v) for k, v in (data.get("soft_limits") or {}).items() if v is not None
+            },
+            restore_margin_kw=float(data.get("restore_margin_kw", default.restore_margin_kw)),
+            soft_delay_s=int(data.get("soft_delay_s", default.soft_delay_s)),
+            hard_delay_s=int(data.get("hard_delay_s", default.hard_delay_s)),
+            restore_delay_s=int(data.get("restore_delay_s", default.restore_delay_s)),
+        )
+
+
+def _float(value: Any) -> float | None:
+    return None if value is None else float(value)
+
+
+@dataclass
+class PowerTimers:
+    """Since when each condition holds; a shedding step restarts its timer."""
+
+    above_soft: datetime | None = None
+    above_hard: datetime | None = None
+    below: datetime | None = None
+    missing: datetime | None = None
+
+
+@dataclass(frozen=True)
+class Candidate:
+    """An appliance that can be shed by power now, with what it draws (None: unknown)."""
+
+    appliance: Appliance
+    power_kw: float | None
+
+
+@dataclass(frozen=True)
+class PowerShed:
+    """An appliance shed by power, with what it drew then."""
+
+    appliance_id: str
+    power_kw: float | None
+
+
+@dataclass(frozen=True)
+class PowerDecision:
+    shed: tuple[str, ...] = ()
+    restore: tuple[str, ...] = ()
+
+
+def power_level(power_kw: float | None, soft: float | None, hard: float | None) -> PowerLevel:
+    if power_kw is None:
+        return PowerLevel.NONE
+    if hard is not None and power_kw > hard:
+        return PowerLevel.HARD
+    if soft is not None and power_kw > soft:
+        return PowerLevel.SOFT
+    return PowerLevel.NONE
+
+
+def power_step(
+    now: datetime,
+    power_kw: float | None,
+    soft: float | None,
+    hard: float | None,
+    settings: PowerSettings,
+    timers: PowerTimers,
+    shed: list[PowerShed],
+    candidates: list[Candidate],
+) -> PowerDecision:
+    """What to shed or bring back now.
+
+    `shed` is in the order the appliances were shed; `candidates` in the order
+    to shed them (lowest priority first). `timers` is updated in place.
+    """
+    if power_kw is None:
+        # No reading: nothing new is shed, and what was shed comes back after a while.
+        timers.above_soft = timers.above_hard = timers.below = None
+        timers.missing = timers.missing or now
+        if shed and _since(now, timers.missing) >= settings.restore_delay_s:
+            timers.missing = now
+            return PowerDecision(restore=tuple(p.appliance_id for p in reversed(shed)))
+        return PowerDecision()
+    timers.missing = None
+    power_kw = max(power_kw, 0.0)
+
+    if hard is not None and power_kw > hard:
+        timers.below = timers.above_soft = None
+        timers.above_hard = timers.above_hard or now
+        if _since(now, timers.above_hard) < settings.hard_delay_s:
+            return PowerDecision()
+        timers.above_hard = now
+        ids: list[str] = []
+        left = power_kw
+        for candidate in candidates:
+            if left <= hard:
+                break
+            ids.append(candidate.appliance.id)
+            if candidate.power_kw is None:
+                # What it frees is unknown: measure again before going on.
+                break
+            left -= candidate.power_kw
+        return PowerDecision(shed=tuple(ids))
+    timers.above_hard = None
+
+    if soft is not None and power_kw > soft:
+        timers.below = None
+        timers.above_soft = timers.above_soft or now
+        if _since(now, timers.above_soft) < settings.soft_delay_s:
+            return PowerDecision()
+        timers.above_soft = now
+        gentle = [c for c in candidates if not c.appliance.hard_only]
+        return PowerDecision(shed=(gentle[0].appliance.id,) if gentle else ())
+    timers.above_soft = None
+
+    ceiling = soft if soft is not None else hard
+    if not shed or ceiling is None:
+        timers.below = None
+        return PowerDecision()
+    last = shed[-1]
+    if power_kw + (last.power_kw or 0.0) > ceiling - settings.restore_margin_kw:
+        timers.below = None
+        return PowerDecision()
+    timers.below = timers.below or now
+    if _since(now, timers.below) < settings.restore_delay_s:
+        return PowerDecision()
+    timers.below = now
+    return PowerDecision(restore=(last.appliance_id,))
+
+
+def _since(now: datetime, then: datetime) -> float:
+    return (now - then).total_seconds()
+
+
+def to_kw(value: str | None, unit: str | None) -> float | None:
+    """A power state in kW; None when it can't be read."""
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    return number if (unit or "").lower() == "kw" else number / 1000

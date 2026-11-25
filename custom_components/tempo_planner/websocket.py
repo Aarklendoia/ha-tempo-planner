@@ -40,6 +40,29 @@ _APPLIANCE = vol.Schema(
         vol.Optional("schedule_white"): vol.Any(None, cv.entity_id),
         vol.Optional("schedule_red"): vol.Any(None, cv.entity_id),
         vol.Optional("normal_option"): vol.Any(None, cv.string),
+        vol.Optional("hard_only", default=False): cv.boolean,
+    }
+)
+
+
+_KW = vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=0, max=100)))
+_DELAY = vol.All(vol.Coerce(int), vol.Range(min=0, max=3600))
+
+_POWER = vol.Schema(
+    {
+        vol.Optional("enabled", default=False): cv.boolean,
+        vol.Optional("power_entity"): vol.Any(None, cv.entity_id),
+        vol.Optional("soft_limit_kw"): _KW,
+        vol.Optional("hard_limit_kw"): _KW,
+        vol.Optional("soft_limits", default={}): {
+            vol.In([f"{c}_{p}" for c in ("blue", "white", "red") for p in ("peak", "offpeak")]): _KW
+        },
+        vol.Optional("restore_margin_kw", default=0.5): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=20)
+        ),
+        vol.Optional("soft_delay_s", default=120): _DELAY,
+        vol.Optional("hard_delay_s", default=5): _DELAY,
+        vol.Optional("restore_delay_s", default=300): _DELAY,
     }
 )
 
@@ -50,6 +73,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save)
     websocket_api.async_register_command(hass, ws_delete)
     websocket_api.async_register_command(hass, ws_subscribe)
+    websocket_api.async_register_command(hass, ws_power_save)
 
 
 def _coordinator(hass: HomeAssistant) -> TempoPlannerCoordinator | None:
@@ -68,6 +92,7 @@ def snapshot(coordinator: TempoPlannerCoordinator) -> dict[str, Any]:
     settings = coordinator.settings
     clock = dt_util.now().time()
     plan = coordinator.data
+    soft, hard = coordinator.shedder.limits()
     return {
         "today": str(coordinator.shedder.color()),
         "tomorrow": str(plan.tomorrow) if plan else None,
@@ -76,6 +101,13 @@ def snapshot(coordinator: TempoPlannerCoordinator) -> dict[str, Any]:
         "offpeak_end": settings.offpeak_end.strftime("%H:%M"),
         "today_color_entity": entry_config(coordinator.config_entry).get(const.CONF_TODAY_COLOR),
         "appliances": coordinator.shedder.as_list(),
+        "power": {
+            **coordinator.shedder.power.to_dict(),
+            "power_kw": coordinator.shedder.power_kw,
+            "level": str(coordinator.shedder.level),
+            "soft_limit_now": soft,
+            "hard_limit_now": hard,
+        },
     }
 
 
@@ -171,3 +203,30 @@ def ws_subscribe(
     connection.subscriptions[msg["id"]] = _unsubscribe
     connection.send_result(msg["id"])
     _send()
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {vol.Required("type"): "tempo_planner/power/save", vol.Required("power"): dict}
+)
+@websocket_api.async_response
+async def ws_power_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    if (shedder := _shedder(hass)) is None:
+        _not_loaded(connection, msg)
+        return
+    try:
+        data = _POWER(msg["power"])
+    except vol.Invalid as err:
+        connection.send_error(msg["id"], "invalid_format", str(err))
+        return
+    soft, hard = data.get("soft_limit_kw"), data.get("hard_limit_kw")
+    if soft is not None and hard is not None and soft >= hard:
+        connection.send_error(msg["id"], "invalid_limits", "Soft limit not under the hard limit")
+        return
+    if data["enabled"] and not data.get("power_entity"):
+        connection.send_error(msg["id"], "no_power_entity", "A power sensor is needed")
+        return
+    settings = await shedder.async_save_power(data)
+    connection.send_result(msg["id"], {"power": settings.to_dict()})

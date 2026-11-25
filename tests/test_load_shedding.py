@@ -447,3 +447,178 @@ async def test_schedule_errors(hass: HomeAssistant, planner, hass_ws_client) -> 
         schedule_red="schedule.car",
     )
     assert "alert_has_no_schedule" in reply["error"]["message"]
+
+
+GRID = "sensor.grid_power"
+
+
+async def power_house(hass: HomeAssistant, client, **power) -> dict:
+    """A tree, a radiator and a car charger, with power shedding on."""
+    hass.states.async_set(GRID, "2000", {"unit_of_measurement": "W"})
+    hass.states.async_set("light.tree", "on")
+    hass.states.async_set("input_select.radiator", "Confort")
+    hass.states.async_set("sensor.radiator_power", "1500", {"unit_of_measurement": "W"})
+    hass.states.async_set("switch.charger", "on")
+    ids = {}
+    for name, appliance in {
+        "tree": {"entity_id": "light.tree", "priority": 0, "power_kw": 0.1},
+        "radiator": {
+            "entity_id": "input_select.radiator",
+            "behaviour": "reduced",
+            "reduced_option": "Eco",
+            "priority": 1,
+            "power_entity": "sensor.radiator_power",
+        },
+        "charger": {
+            "entity_id": "switch.charger",
+            "priority": 2,
+            "power_kw": 7.4,
+            "hard_only": True,
+        },
+    }.items():
+        reply = await save(client, name=name.capitalize(), **appliance)
+        assert reply["success"], reply
+        ids[name] = reply["result"]["appliance"]["id"]
+    await client.send_json_auto_id(
+        {
+            "type": "tempo_planner/power/save",
+            "power": {
+                "enabled": True,
+                "power_entity": GRID,
+                "soft_limit_kw": 6,
+                "hard_limit_kw": 9,
+                "soft_delay_s": 60,
+                "hard_delay_s": 5,
+                "restore_delay_s": 120,
+                **power,
+            },
+        }
+    )
+    reply = await client.receive_json()
+    assert reply["success"], reply
+    await hass.async_block_till_done()
+    return ids
+
+
+async def tick(hass: HomeAssistant, freezer: FrozenDateTimeFactory, seconds: int) -> None:
+    for _ in range(seconds // 5):
+        freezer.tick(timedelta(seconds=5))
+        async_fire_time_changed(hass)
+        await hass.async_block_till_done()
+
+
+async def test_power_soft_then_back(
+    hass: HomeAssistant, planner, calls, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    switch_off = async_mock_service(hass, "switch", "turn_off")
+    client = await hass_ws_client(hass)
+    await power_house(hass, client)
+    assert hass.states.get("sensor.tempo_planner_load_shedding_level").state == "none"
+    assert hass.states.get("sensor.tempo_planner_power_headroom").state == "4.0"
+
+    # 7 kW: over the soft limit.
+    hass.states.async_set(GRID, "7000", {"unit_of_measurement": "W"})
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.tempo_planner_load_shedding_level").state == "soft"
+    await tick(hass, freezer, 55)
+    assert calls["off"] == []
+    await tick(hass, freezer, 10)
+    # The lowest priority first: the tree.
+    assert [c.data["entity_id"] for c in calls["off"]] == ["light.tree"]
+    shed = hass.states.get(SHED)
+    assert shed.state == "on"
+    assert shed.attributes["reason"] == "power"
+    assert shed.attributes["until"] is None
+    hass.states.async_set("light.tree", "off")
+    await tick(hass, freezer, 60)
+    # Then the radiator, reduced; never the charger below the hard limit.
+    assert calls["select"][-1].data == {"entity_id": "input_select.radiator", "option": "Eco"}
+    hass.states.async_set("input_select.radiator", "Eco")
+    hass.states.async_set("sensor.radiator_power", "300", {"unit_of_measurement": "W"})
+    await tick(hass, freezer, 120)
+    assert switch_off == []
+
+    # Down to 3 kW: the radiator comes back first, after the delay.
+    hass.states.async_set(GRID, "3000", {"unit_of_measurement": "W"})
+    await tick(hass, freezer, 115)
+    assert calls["select"][-1].data["option"] == "Eco"
+    await tick(hass, freezer, 10)
+    assert calls["select"][-1].data["option"] == "Confort"
+    hass.states.async_set("input_select.radiator", "Confort")
+    await tick(hass, freezer, 125)
+    assert [c.data["entity_id"] for c in calls["on"]] == ["light.tree"]
+    assert hass.states.get(SHED).state == "off"
+
+
+async def test_power_hard_limit(
+    hass: HomeAssistant, planner, calls, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    switch_off = async_mock_service(hass, "switch", "turn_off")
+    async_mock_service(hass, "switch", "turn_on")
+    client = await hass_ws_client(hass)
+    await power_house(hass, client)
+    hass.states.async_set(GRID, "12000", {"unit_of_measurement": "W"})
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.tempo_planner_load_shedding_level").state == "hard"
+    await tick(hass, freezer, 5)
+    # 12 - 0.1 - 1.5 = 10.4 > 9: the charger goes too.
+    assert len(calls["off"]) == 1
+    assert len(calls["select"]) == 1
+    assert [c.data["entity_id"] for c in switch_off] == ["switch.charger"]
+
+
+async def test_power_then_tariff(
+    hass: HomeAssistant, planner, calls, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    """Shed by power, then a red day starts: the tariff takes over, with the same state."""
+    client = await hass_ws_client(hass)
+    await power_house(hass, client)
+    hass.states.async_set(GRID, "7000", {"unit_of_measurement": "W"})
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 65)
+    assert len(calls["off"]) == 1
+    hass.states.async_set("light.tree", "off")
+    await red_day(hass)
+    assert hass.states.get(SHED).attributes["reason"] == "tariff"
+    # The power comes down: the tree stays off, it's a red day.
+    hass.states.async_set(GRID, "1000", {"unit_of_measurement": "W"})
+    await tick(hass, freezer, 300)
+    assert calls["on"] == []
+    # 22:00: back on, as it was before the power shedding.
+    await move_to(hass, freezer, datetime(2026, 11, 23, 22, 0, tzinfo=PARIS))
+    assert [c.data["entity_id"] for c in calls["on"]] == ["light.tree"]
+
+
+async def test_power_switch_off_brings_back(
+    hass: HomeAssistant, planner, calls, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    client = await hass_ws_client(hass)
+    await power_house(hass, client)
+    hass.states.async_set(GRID, "7000", {"unit_of_measurement": "W"})
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 65)
+    hass.states.async_set("light.tree", "off")
+    await hass.services.async_call(
+        "switch",
+        "turn_off",
+        {"entity_id": "switch.tempo_planner_power_load_shedding"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert [c.data["entity_id"] for c in calls["on"]] == ["light.tree"]
+    assert hass.states.get("sensor.tempo_planner_load_shedding_level").state == "unknown"
+    # Off: no more shedding.
+    await tick(hass, freezer, 120)
+    assert len(calls["off"]) == 1
+
+
+async def test_power_settings_errors(hass: HomeAssistant, planner, hass_ws_client) -> None:
+    client = await hass_ws_client(hass)
+    for power, code in (
+        ({"enabled": True}, "no_power_entity"),
+        ({"power_entity": GRID, "soft_limit_kw": 9, "hard_limit_kw": 6}, "invalid_limits"),
+        ({"soft_limits": {"purple_peak": 3}}, "invalid_format"),
+    ):
+        await client.send_json_auto_id({"type": "tempo_planner/power/save", "power": power})
+        reply = await client.receive_json()
+        assert reply["error"]["code"] == code, reply

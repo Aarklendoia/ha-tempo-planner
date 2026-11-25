@@ -27,6 +27,7 @@ from .load_shedding import LoadShedder, signal_update
 from .planner import Color, Plan, Slot
 from .reasons import explain
 from .review import BatteryOutcome
+from .shedding import PowerLevel
 
 
 def _peak_review(plan: Plan, _: str) -> dict[str, Any]:
@@ -254,7 +255,13 @@ async def async_setup_entry(
 ) -> None:
     coordinator = entry.runtime_data
     async_add_entities(PlanSensor(coordinator, d) for d in SENSORS)
-    async_add_entities([ShedAppliancesSensor(coordinator.shedder)])
+    async_add_entities(
+        [
+            ShedAppliancesSensor(coordinator.shedder),
+            PowerHeadroomSensor(coordinator.shedder),
+            PowerLevelSensor(coordinator.shedder),
+        ]
+    )
 
 
 class PlanSensor(CoordinatorEntity[TempoPlannerCoordinator], SensorEntity):
@@ -332,3 +339,71 @@ class ShedAppliancesSensor(SensorEntity):
                 for a in self._shed()
             ]
         }
+
+
+class _ShedderSensor(SensorEntity):
+    """Follows the load shedder."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    key: str
+
+    def __init__(self, shedder: LoadShedder) -> None:
+        self._shedder = shedder
+        self._attr_unique_id = f"{shedder.entry_id}_{self.key}"
+        self._attr_device_info = device_info(shedder.entry_id)
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, signal_update(self._shedder.entry_id), self.async_write_ha_state
+            )
+        )
+
+
+class PowerHeadroomSensor(_ShedderSensor):
+    """What is left before the soft limit (the hard one without it)."""
+
+    key = "power_headroom"
+    _attr_translation_key = "power_headroom"
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+    _attr_suggested_display_precision = 1
+
+    @property
+    def native_value(self) -> float | None:
+        soft, hard = self._shedder.limits()
+        limit = soft if soft is not None else hard
+        power = self._shedder.power_kw
+        if not self._shedder.power.enabled or power is None or limit is None:
+            return None
+        return round(limit - max(power, 0.0), 2)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        soft, hard = self._shedder.limits()
+        power = self._shedder.power_kw
+        return {
+            "power": power,
+            "soft_limit": soft,
+            "hard_limit": hard,
+            "hard_headroom": round(hard - max(power, 0.0), 2)
+            if hard is not None and power is not None
+            else None,
+        }
+
+
+class PowerLevelSensor(_ShedderSensor):
+    """How hard the house sheds by power: none, soft or hard."""
+
+    key = "power_level"
+    _attr_translation_key = "power_level"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = [str(level) for level in PowerLevel]
+
+    @property
+    def native_value(self) -> str | None:
+        if not self._shedder.power.enabled:
+            return None
+        return str(self._shedder.level)
