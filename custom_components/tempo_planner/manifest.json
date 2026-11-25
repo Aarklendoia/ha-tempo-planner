@@ -2,6 +2,9 @@
   "domain": "tempo_planner",
   "name": "Tempo Planner",
   "after_dependencies": [
+    "frontend",
+    "http",
+    "panel_custom",
     "recorder"
   ],
   "codeowners": [

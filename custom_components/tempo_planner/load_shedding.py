@@ -234,14 +234,15 @@ class LoadShedder:
     def _on_color(self, _: Event[EventStateChangedData]) -> None:
         self.hass.async_create_task(self.async_evaluate())
 
-    def _color(self) -> Color:
+    def color(self) -> Color:
+        """Colour of the Tempo day in progress."""
         state = self.hass.states.get(self._color_entity) if self._color_entity else None
         return parse_color(state.state if state else None)
 
     async def async_evaluate(self) -> None:
         """Shed or release every appliance by the current tariff."""
         now = dt_util.now()
-        color = self._color()
+        color = self.color()
         async with self._lock:
             changed = False
             for appliance in list(self.appliances.values()):
