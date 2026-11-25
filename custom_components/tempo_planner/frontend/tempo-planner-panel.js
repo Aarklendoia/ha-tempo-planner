@@ -806,7 +806,7 @@ class TempoPlannerPanel extends LitElement {
       overflow-wrap: anywhere;
     }
     .entity.picked {
-      margin: -8px 0 16px;
+      margin: 4px 0 16px;
     }
     .appliance.disabled .grow {
       opacity: 0.6;
