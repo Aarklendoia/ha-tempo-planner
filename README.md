@@ -96,6 +96,18 @@ today's colour entity. Each appliance has one behaviour:
   sensor tells when it runs (a number above 50 W, or `on`, or the states you
   give); a notification goes out when it starts running while shed.
 
+**Schedules by colour** (optional, not for alerts): a `schedule` entity per
+colour. On a day of that colour, the appliance is turned on (or put in its
+normal mode, such as `Confort`) when the schedule turns on, and off (or
+reduced) when it turns off; the day's schedule also applies when the Tempo day
+changes at 06:00. Between those changes, a manual change is left alone. A
+colour without a schedule leaves the appliance alone; shedding always wins,
+and when it ends the schedule says what the appliance does next. The
+appliance's switch turns its schedules off too.
+
+At 06:00 the current colour entity of RTE Tempo lags a few seconds behind: the
+colour announced the day before is used until it catches up.
+
 The shedding in progress is kept across restarts. Each appliance also has a
 priority and a power, used by the power-based shedding to come.
 
@@ -232,8 +244,11 @@ mêmes décisions que le mode IA d'EcoFlow avant de lui confier quoi que ce soit
 Tempo. Selon l'appareil : coupé puis rallumé s'il l'était (et recoupé, avec une
 notification, si quelqu'un le rallume entre-temps), passé en mode réduit (Eco,
 preset…) puis remis dans son mode, ou simplement surveillé avec une alerte
-quand il fonctionne (la voiture). Un interrupteur par appareil active ou non
-son délestage, un capteur dit s'il est délesté et jusqu'à quand. Les appareils
+quand il fonctionne (la voiture). Chaque appareil peut aussi suivre un
+**planning par couleur** (une entité `schedule` pour les jours bleus, blancs,
+rouges) : allumé ou en mode normal tant que le planning est actif, éteint ou
+réduit sinon ; le délestage passe avant. Un interrupteur par appareil active ou
+non son délestage et ses plannings, un capteur dit s'il est délesté et jusqu'à quand. Les appareils
 se gèrent dans le panneau **Tempo Planner** de la barre latérale (administrateurs) :
 l'onglet *Maintenant* montre les couleurs du jour et du lendemain, la période
 tarifaire et ce qui est délesté jusqu'à quand ; l'onglet *Appareils* permet

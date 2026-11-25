@@ -82,10 +82,28 @@ class Appliance:
     power_entity: str | None = None
     power_kw: float | None = None
     enabled: bool = True
+    # A schedule per colour: on while it is on, off (or reduced) otherwise.
+    schedule_blue: str | None = None
+    schedule_white: str | None = None
+    schedule_red: str | None = None
+    # The mode while a schedule is on, for the reduced behaviour.
+    normal_option: str | None = None
 
     @property
     def domain(self) -> str:
         return self.entity_id.split(".", 1)[0]
+
+    def schedule_for(self, color: Color) -> str | None:
+        """The schedule the appliance follows on a day of this colour."""
+        return {
+            Color.BLUE: self.schedule_blue,
+            Color.WHITE: self.schedule_white,
+            Color.RED: self.schedule_red,
+        }.get(color)
+
+    @property
+    def schedules(self) -> list[str]:
+        return [s for s in (self.schedule_blue, self.schedule_white, self.schedule_red) if s]
 
     @property
     def watched_entity(self) -> str:
@@ -121,6 +139,10 @@ class Appliance:
             power_entity=data.get("power_entity"),
             power_kw=data.get("power_kw"),
             enabled=bool(data.get("enabled", True)),
+            schedule_blue=data.get("schedule_blue"),
+            schedule_white=data.get("schedule_white"),
+            schedule_red=data.get("schedule_red"),
+            normal_option=data.get("normal_option"),
         )
 
 
@@ -136,6 +158,13 @@ def problems(appliance: Appliance) -> list[str]:
             found.append("reduced_option_missing")
     if appliance.notify and not appliance.notify.startswith("notify."):
         found.append("notify_not_a_notify_service")
+    if appliance.schedules:
+        if appliance.behaviour is Behaviour.ALERT:
+            found.append("alert_has_no_schedule")
+        if appliance.behaviour is Behaviour.REDUCED and not appliance.normal_option:
+            found.append("normal_option_missing")
+        if any(not s.startswith("schedule.") for s in appliance.schedules):
+            found.append("schedule_not_a_schedule")
     if not appliance.colors:
         found.append("no_color")
     return found
@@ -191,3 +220,12 @@ def current_color(
     if stale and announced is not None and announced is not Color.UNKNOWN:
         return announced
     return entity_color
+
+
+def scheduled_state(appliance: Appliance, schedule_on: bool) -> str | None:
+    """What a schedule asks of an appliance: "on"/"off", or a mode."""
+    if appliance.behaviour is Behaviour.OFF:
+        return "on" if schedule_on else "off"
+    if appliance.behaviour is Behaviour.REDUCED:
+        return appliance.normal_option if schedule_on else appliance.reduced_option
+    return None
