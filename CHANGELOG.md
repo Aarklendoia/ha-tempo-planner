@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.7.0...v0.7.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* tell same-named entities apart in the panel ([#35](https://github.com/Aarklendoia/ha-tempo-planner/issues/35)) ([2b0025b](https://github.com/Aarklendoia/ha-tempo-planner/commit/2b0025be884169f86390708ea3ad590a73d35207)), closes [#34](https://github.com/Aarklendoia/ha-tempo-planner/issues/34)
+
 ## [0.7.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.6.0...v0.7.0) (2026-11-25)
 
 
