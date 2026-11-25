@@ -8,7 +8,9 @@
     "@Aarklendoia"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "websocket_api"
+  ],
   "documentation": "https://github.com/Aarklendoia/ha-tempo-planner",
   "integration_type": "service",
   "iot_class": "calculated",

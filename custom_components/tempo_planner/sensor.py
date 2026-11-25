@@ -14,13 +14,16 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfPower
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import TempoPlannerConfigEntry, TempoPlannerCoordinator
+from .entity import device_info
+from .load_shedding import LoadShedder, signal_update
 from .planner import Color, Plan, Slot
 from .reasons import explain
 from .review import BatteryOutcome
@@ -251,6 +254,7 @@ async def async_setup_entry(
 ) -> None:
     coordinator = entry.runtime_data
     async_add_entities(PlanSensor(coordinator, d) for d in SENSORS)
+    async_add_entities([ShedAppliancesSensor(coordinator.shedder)])
 
 
 class PlanSensor(CoordinatorEntity[TempoPlannerCoordinator], SensorEntity):
@@ -281,3 +285,50 @@ class PlanSensor(CoordinatorEntity[TempoPlannerCoordinator], SensorEntity):
         if self.entity_description.attributes is None:
             return None
         return self.entity_description.attributes(self.coordinator.data, self.hass.config.language)
+
+
+class ShedAppliancesSensor(SensorEntity):
+    """How many appliances are shed now, and which."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_translation_key = "shed_appliances"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, shedder: LoadShedder) -> None:
+        self._shedder = shedder
+        self._attr_unique_id = f"{shedder.entry_id}_shed_appliances"
+        self._attr_device_info = device_info(shedder.entry_id)
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, signal_update(self._shedder.entry_id), self._updated
+            )
+        )
+
+    @callback
+    def _updated(self) -> None:
+        self.async_write_ha_state()
+
+    def _shed(self) -> list[dict[str, Any]]:
+        return [a for a in self._shedder.as_list() if a["status"]["shed"]]
+
+    @property
+    def native_value(self) -> int:
+        return len(self._shed())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "appliances": [
+                {
+                    "name": a["name"],
+                    "appliance_entity": a["entity_id"],
+                    "behaviour": a["behaviour"],
+                    "reason": a["status"]["reason"],
+                    "until": a["status"]["until"],
+                }
+                for a in self._shed()
+            ]
+        }

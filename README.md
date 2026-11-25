@@ -2,11 +2,13 @@
 
 A Home Assistant integration that plans the night's loads for the French EDF
 **Tempo** tariff: when to charge the home battery from the grid, when to charge
-the car, and when the dishwasher should run.
+the car, and when the dishwasher should run. It also sheds the appliances you
+choose on red days.
 
-> **For now, it only observes.** It computes a plan and exposes it as sensors;
-> it controls nothing yet. Compare the plan with what you would have done for a
-> week or two, then use the sensors in your own automations.
+> **The plan only observes.** It is exposed as sensors and controls nothing:
+> compare it with what you would have done for a week or two, then use the
+> sensors in your own automations. **Load shedding acts**: it drives only the
+> appliances you add to it.
 
 *[Français plus bas](#français).*
 
@@ -77,6 +79,41 @@ power you allow.
 | Last night's car charge | grid energy the car took during the night before the last day reviewed, kWh (from its level and capacity); attributes: actual `start` and `end` (from the car charging entity), levels, planned start, end and energy, and the `start_offset` in minutes |
 | Night peak power | sum of the planned loads at their highest, kW |
 
+## Load shedding
+
+The appliances you add are shed on the days of their colours (red by default,
+white too if you want), during peak hours or for the whole Tempo day. It needs
+today's colour entity. Each appliance has one behaviour:
+
+- **Off**: turned off (`light`, `switch`, `fan`, `input_boolean`, `climate`,
+  `water_heater`, `humidifier`, `media_player`), and back on afterwards if it
+  was on. Turned on by someone while shed, it is turned off again, with a
+  notification: turn its shedding switch off to keep it on.
+- **Reduced mode**: an option, preset or operation mode is forced
+  (`select`, `input_select`, `climate` preset, `water_heater`), the previous one
+  restored afterwards.
+- **Alert only**: for what can't be driven, such as a car. A state or power
+  sensor tells when it runs (a number above 50 W, or `on`, or the states you
+  give); a notification goes out when it starts running while shed.
+
+The shedding in progress is kept across restarts. Each appliance also has a
+priority and a power, used by the power-based shedding to come.
+
+| Entity | Value |
+| --- | --- |
+| Shed *appliance* (switch) | whether the appliance may be shed |
+| *Appliance* shed (binary) | on while shed; attributes: `reason` (`tariff`), `until`, `behaviour`, `appliance_entity` |
+| Shed appliances | how many appliances are shed now; attribute: the list |
+
+Until the configuration panel comes, appliances are managed with WebSocket
+commands (admin only): `tempo_planner/appliances/list`,
+`tempo_planner/appliances/save` with an `appliance` (`name`, `entity_id`,
+`behaviour`: `off`/`reduced`/`alert`, `reduced_option`, `running_entity`,
+`running_above`, `running_states`, `colors`, `hours`: `peak`/`day`, `notify`
+such as `notify.mobile_app_phone`, `priority`, `power_entity`, `power_kw`,
+`enabled`; with its `id` to change it), and `tempo_planner/appliances/delete`
+with an `appliance_id`.
+
 ## Installation
 
 HACS → ⋮ → *Custom repositories* → `https://github.com/Aarklendoia/ha-tempo-planner`,
@@ -140,9 +177,10 @@ Une intégration Home Assistant qui planifie les consommations de la nuit pour
 l'option **Tempo** d'EDF : quand charger la batterie domestique sur le réseau,
 quand charger la voiture, quand faire tourner le lave-vaisselle.
 
-**Pour l'instant, elle se contente d'observer** : elle calcule un plan et l'expose en
-capteurs, sans rien piloter. Comparez-le pendant une ou deux semaines avec ce que
-vous auriez fait, puis servez-vous des capteurs dans vos automatisations.
+**Le plan se contente d'observer** : il est exposé en capteurs, sans rien
+piloter. Comparez-le pendant une ou deux semaines avec ce que vous auriez fait,
+puis servez-vous des capteurs dans vos automatisations. **Le délestage, lui,
+agit**, mais seulement sur les appareils que vous lui confiez.
 
 - **Batterie** : elle charge en heures creuses ce que la maison consommera en
   heures pleines, moins le solaire prévu, mais seulement si c'est rentable. La
@@ -181,6 +219,16 @@ Chaque jour, elle compare aussi la veille à ce qui s'est réellement passé : l
 consommation mesurée en heures pleines face à la prévision, et la charge ou non
 de la batterie pendant la nuit face au plan. De quoi vérifier qu'elle prend les
 mêmes décisions que le mode IA d'EcoFlow avant de lui confier quoi que ce soit.
+
+**Délestage** : les appareils ajoutés sont délestés les jours de leurs couleurs
+(rouge par défaut, blanc en option), en heures pleines ou toute la journée
+Tempo. Selon l'appareil : coupé puis rallumé s'il l'était (et recoupé, avec une
+notification, si quelqu'un le rallume entre-temps), passé en mode réduit (Eco,
+preset…) puis remis dans son mode, ou simplement surveillé avec une alerte
+quand il fonctionne (la voiture). Un interrupteur par appareil active ou non
+son délestage, un capteur dit s'il est délesté et jusqu'à quand. En attendant le
+panneau de configuration, les appareils se gèrent par commandes WebSocket (voir
+plus haut).
 
 Installation par HACS (dépôt personnalisé ci-dessus), puis *Paramètres →
 Appareils et services → Ajouter une intégration → Tempo Planner*. Seule la
