@@ -105,8 +105,15 @@ priority and a power, used by the power-based shedding to come.
 | *Appliance* shed (binary) | on while shed; attributes: `reason` (`tariff`), `until`, `behaviour`, `appliance_entity` |
 | Shed appliances | how many appliances are shed now; attribute: the list |
 
-Until the configuration panel comes, appliances are managed with WebSocket
-commands (admin only): `tempo_planner/appliances/list`,
+Appliances are managed in the **Tempo Planner** panel, in the sidebar (admins
+only): the *Now* tab shows today's and tomorrow's colours, the current tariff
+period and what is shed until when; the *Appliances* tab adds, edits, deletes
+and turns their shedding on and off. The panel follows Home Assistant's theme
+and language (English, French).
+
+The same is available with WebSocket commands (admin only):
+`tempo_planner/subscribe` (a snapshot now, then on every change),
+`tempo_planner/appliances/list`,
 `tempo_planner/appliances/save` with an `appliance` (`name`, `entity_id`,
 `behaviour`: `off`/`reduced`/`alert`, `reduced_option`, `running_entity`,
 `running_above`, `running_states`, `colors`, `hours`: `peak`/`day`, `notify`
@@ -226,9 +233,11 @@ Tempo. Selon l'appareil : coupé puis rallumé s'il l'était (et recoupé, avec 
 notification, si quelqu'un le rallume entre-temps), passé en mode réduit (Eco,
 preset…) puis remis dans son mode, ou simplement surveillé avec une alerte
 quand il fonctionne (la voiture). Un interrupteur par appareil active ou non
-son délestage, un capteur dit s'il est délesté et jusqu'à quand. En attendant le
-panneau de configuration, les appareils se gèrent par commandes WebSocket (voir
-plus haut).
+son délestage, un capteur dit s'il est délesté et jusqu'à quand. Les appareils
+se gèrent dans le panneau **Tempo Planner** de la barre latérale (administrateurs) :
+l'onglet *Maintenant* montre les couleurs du jour et du lendemain, la période
+tarifaire et ce qui est délesté jusqu'à quand ; l'onglet *Appareils* permet
+d'ajouter, modifier, supprimer et activer ou non leur délestage.
 
 Installation par HACS (dépôt personnalisé ci-dessus), puis *Paramètres →
 Appareils et services → Ajouter une intégration → Tempo Planner*. Seule la

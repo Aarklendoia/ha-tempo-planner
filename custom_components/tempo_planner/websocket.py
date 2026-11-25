@@ -7,10 +7,13 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
 from . import const
-from .load_shedding import LoadShedder
+from .coordinator import TempoPlannerCoordinator, entry_config
+from .load_shedding import LoadShedder, signal_update
 from .planner import Color
 from .shedding import Appliance, Behaviour, Hours, problems
 
@@ -42,12 +45,34 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_list)
     websocket_api.async_register_command(hass, ws_save)
     websocket_api.async_register_command(hass, ws_delete)
+    websocket_api.async_register_command(hass, ws_subscribe)
+
+
+def _coordinator(hass: HomeAssistant) -> TempoPlannerCoordinator | None:
+    for entry in hass.config_entries.async_loaded_entries(const.DOMAIN):
+        return entry.runtime_data
+    return None
 
 
 def _shedder(hass: HomeAssistant) -> LoadShedder | None:
-    for entry in hass.config_entries.async_loaded_entries(const.DOMAIN):
-        return entry.runtime_data.shedder
-    return None
+    coordinator = _coordinator(hass)
+    return coordinator.shedder if coordinator else None
+
+
+def snapshot(coordinator: TempoPlannerCoordinator) -> dict[str, Any]:
+    """Where the house stands, for the panel."""
+    settings = coordinator.settings
+    clock = dt_util.now().time()
+    plan = coordinator.data
+    return {
+        "today": str(coordinator.shedder.color()),
+        "tomorrow": str(plan.tomorrow) if plan else None,
+        "offpeak": not (settings.offpeak_end <= clock < settings.offpeak_start),
+        "offpeak_start": settings.offpeak_start.strftime("%H:%M"),
+        "offpeak_end": settings.offpeak_end.strftime("%H:%M"),
+        "today_color_entity": entry_config(coordinator.config_entry).get(const.CONF_TODAY_COLOR),
+        "appliances": coordinator.shedder.as_list(),
+    }
 
 
 def _not_loaded(connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -112,3 +137,33 @@ async def ws_delete(
         connection.send_error(msg["id"], "not_found", f"No appliance {msg['appliance_id']}")
         return
     connection.send_result(msg["id"])
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "tempo_planner/subscribe"})
+@callback
+def ws_subscribe(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """The snapshot now, then again whenever the plan or the shedding changes."""
+    if (coordinator := _coordinator(hass)) is None:
+        _not_loaded(connection, msg)
+        return
+
+    @callback
+    def _send() -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], snapshot(coordinator)))
+
+    unsubs = [
+        async_dispatcher_connect(hass, signal_update(coordinator.shedder.entry_id), _send),
+        coordinator.async_add_listener(_send),
+    ]
+
+    @callback
+    def _unsubscribe() -> None:
+        for unsub in unsubs:
+            unsub()
+
+    connection.subscriptions[msg["id"]] = _unsubscribe
+    connection.send_result(msg["id"])
+    _send()

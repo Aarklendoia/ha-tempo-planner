@@ -6,8 +6,9 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 
-from . import websocket
+from . import panel, websocket
 from .const import DOMAIN
 from .coordinator import TempoPlannerConfigEntry, TempoPlannerCoordinator, entry_config
 from .load_shedding import LoadShedder
@@ -35,8 +36,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: TempoPlannerConfigEntry)
     # After the platforms: the appliances' entities follow from the start.
     await coordinator.shedder.async_start()
     entry.async_on_unload(coordinator.shedder.async_stop)
+    integration = await async_get_integration(hass, DOMAIN)
+    await panel.async_register_panel(hass, str(integration.version))
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TempoPlannerConfigEntry) -> bool:
+    panel.async_remove_panel(hass)
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
