@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.3](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.7.2...v0.7.3) (2026-11-25)
+
+
+### Bug Fixes
+
+* shed by today's colour from the first second of the Tempo day ([#41](https://github.com/Aarklendoia/ha-tempo-planner/issues/41)) ([43808dc](https://github.com/Aarklendoia/ha-tempo-planner/commit/43808dce0de1df9b56e8203da54100023fc6c7f4)), closes [#40](https://github.com/Aarklendoia/ha-tempo-planner/issues/40)
+
 ## [0.7.2](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.7.1...v0.7.2) (2026-11-25)
 
 
