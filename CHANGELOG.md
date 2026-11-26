@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.13.0...v0.13.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* a watched appliance's line fits any appliance ([#65](https://github.com/Aarklendoia/ha-tempo-planner/issues/65)) ([ad3d03a](https://github.com/Aarklendoia/ha-tempo-planner/commit/ad3d03a7171fb3aa3f2c1f0c6159ccc25de6782e)), closes [#64](https://github.com/Aarklendoia/ha-tempo-planner/issues/64)
+
 ## [0.13.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.12.0...v0.13.0) (2026-11-26)
 
 
