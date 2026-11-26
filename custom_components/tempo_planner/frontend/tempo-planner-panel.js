@@ -153,7 +153,7 @@ const TEXTS = {
     watched_now: "Watched",
     watched: "Watched",
     running_now: "Running!",
-    watched_help: "Alert if it runs",
+    watched_help: "Alert when it starts",
     error: "Error: {message}",
   },
   fr: {
@@ -294,7 +294,7 @@ const TEXTS = {
     watched_now: "Sous surveillance",
     watched: "Surveillé",
     running_now: "En marche !",
-    watched_help: "Alerte s'il se met en marche",
+    watched_help: "Alerte à la mise en marche",
     error: "Erreur : {message}",
   },
 };
