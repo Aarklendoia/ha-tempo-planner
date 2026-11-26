@@ -141,6 +141,10 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         self._reviews: dict[date, DayReview] = {}
         self._reviewed_on: date | None = None
 
+    def color_of(self, day: date) -> Color:
+        """The remembered colour of a past Tempo day; unknown when not remembered."""
+        return (self._colors or {}).get(day, Color.UNKNOWN)
+
     @property
     def settings(self) -> Settings:
         return self._settings

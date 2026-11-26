@@ -15,6 +15,7 @@ from . import const
 from .coordinator import TempoPlannerCoordinator, entry_config
 from .load_shedding import LoadShedder, signal_update
 from .planner import Color
+from .power_history import async_power_history
 from .shedding import Appliance, Behaviour, Hours, problems
 
 _APPLIANCE = vol.Schema(
@@ -74,6 +75,7 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_delete)
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_power_save)
+    websocket_api.async_register_command(hass, ws_power_history)
 
 
 def _coordinator(hass: HomeAssistant) -> TempoPlannerCoordinator | None:
@@ -230,3 +232,20 @@ async def ws_power_save(
         return
     settings = await shedder.async_save_power(data)
     connection.send_result(msg["id"], {"power": settings.to_dict()})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "tempo_planner/power/history",
+        vol.Optional("hours", default=24): vol.All(vol.Coerce(int), vol.Range(min=1, max=48)),
+    }
+)
+@websocket_api.async_response
+async def ws_power_history(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    if (coordinator := _coordinator(hass)) is None:
+        _not_loaded(connection, msg)
+        return
+    connection.send_result(msg["id"], await async_power_history(hass, coordinator, msg["hours"]))

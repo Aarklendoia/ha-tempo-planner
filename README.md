@@ -118,7 +118,11 @@ default). Alert-only appliances can't be shed by power; an appliance shed by
 power when a red day starts is taken over by the tariff. Entities: *Power load
 shedding* (switch), *Power headroom* (kW before the soft limit) and *Load
 shedding level* (`none`, `soft`, `hard`). The panel has a *Power* tab: the power
-now against the limits, the shedding order (up/down) and the settings.
+now against the limits, the shedding order (up/down) and the settings. The *Now*
+tab charts the last 6 or 24 hours: the power drawn from the grid, the limits,
+each appliance's power stacked, the power avoided by shedding (hatched, above
+the grid line) and a row per appliance with its shedding periods
+(`tempo_planner/power/history`).
 
 At 06:00 the current colour entity of RTE Tempo lags a few seconds behind: the
 colour announced the day before is used until it catches up.
@@ -277,7 +281,9 @@ priorité après une temporisation, le mode réduit d'abord ; au-dessus d'un
 ceux marqués « seuil dur seulement » (la borne de la voiture). Ils reviennent un
 par un, le dernier d'abord, quand il y a la place. L'onglet *Puissance* du
 panneau montre la puissance face aux seuils, l'ordre de délestage et les
-réglages.
+réglages ; l'onglet *Maintenant* trace les 6 ou 24 dernières heures : la
+puissance tirée du réseau, les seuils, la consommation de chaque appareil et ce
+que le délestage a évité.
 
 Installation par HACS (dépôt personnalisé ci-dessus), puis *Paramètres →
 Appareils et services → Ajouter une intégration → Tempo Planner*. Seule la
