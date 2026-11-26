@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.13.1...v0.13.2) (2026-11-26)
+
+
+### Performance Improvements
+
+* the power chart shows faster when the panel opens ([#68](https://github.com/Aarklendoia/ha-tempo-planner/issues/68)) ([4cc5aaf](https://github.com/Aarklendoia/ha-tempo-planner/commit/4cc5aaf8810fba3b8dc9180ac91fe624bca2f5d7)), closes [#67](https://github.com/Aarklendoia/ha-tempo-planner/issues/67)
+
 ## [0.13.1](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.13.0...v0.13.1) (2026-11-26)
 
 
