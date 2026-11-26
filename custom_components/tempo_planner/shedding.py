@@ -250,6 +250,8 @@ class PowerSettings:
     enabled: bool = False
     # The power drawn from the grid, in W or kW.
     power_entity: str | None = None
+    # What the house uses, for the chart only: the gap with the grid is the battery.
+    house_entity: str | None = None
     # Not above, if possible: shed gently, one appliance at a time.
     soft_limit_kw: float | None = None
     # Never for long: shed fast, as many as needed.
@@ -275,6 +277,7 @@ class PowerSettings:
         return cls(
             enabled=bool(data.get("enabled", default.enabled)),
             power_entity=data.get("power_entity"),
+            house_entity=data.get("house_entity"),
             soft_limit_kw=_float(data.get("soft_limit_kw")),
             hard_limit_kw=_float(data.get("hard_limit_kw")),
             soft_limits={
