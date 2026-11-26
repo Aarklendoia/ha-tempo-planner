@@ -4,7 +4,17 @@
 // Assistant's own elements (ha-form, ha-icon, ha-menu-button) and theme
 // variables keep it in line with the rest of the interface.
 
-import { LitElement, html, css, nothing } from "./lit.js";
+import { LitElement, html, svg, css, nothing } from "./lit.js";
+
+// The next round number (1, 1.2, 1.5, 2… times a power of ten) at or above a value.
+function niceCeil(value) {
+  if (value <= 0) return 1;
+  const power = 10 ** Math.floor(Math.log10(value));
+  for (const step of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) {
+    if (value <= step * power + 1e-9) return step * power;
+  }
+  return 10 * power;
+}
 
 const TEXTS = {
   en: {
@@ -101,6 +111,15 @@ const TEXTS = {
     field_red_peak: "Red, peak hours (kW)",
     field_red_offpeak: "Red, off-peak hours (kW)",
     saved: "Saved.",
+    chart_title: "Power",
+    chart_hours: "{hours} h",
+    chart_grid: "From the grid",
+    chart_soft: "Soft limit",
+    chart_hard: "Hard limit",
+    chart_avoided: "Avoided by shedding",
+    chart_shed: "Shed",
+    chart_no_data: "No power history yet.",
+    chart_summary: "Power drawn from the grid over the last {hours} hours, with the limits and the appliances.",
     help_off: "Turned off, back on afterwards if it was on. Turned back on by someone: off again, with a notification.",
     help_reduced: "A mode is forced (Eco, a preset…), the previous one restored afterwards.",
     help_alert: "Nothing is driven: a notification when it starts running while shed.",
@@ -202,6 +221,15 @@ const TEXTS = {
     field_red_peak: "Rouge, heures pleines (kW)",
     field_red_offpeak: "Rouge, heures creuses (kW)",
     saved: "Enregistré.",
+    chart_title: "Consommation",
+    chart_hours: "{hours} h",
+    chart_grid: "Tiré du réseau",
+    chart_soft: "Seuil souple",
+    chart_hard: "Seuil dur",
+    chart_avoided: "Évité par le délestage",
+    chart_shed: "Délesté",
+    chart_no_data: "Pas encore d'historique de puissance.",
+    chart_summary: "Puissance tirée du réseau sur les {hours} dernières heures, avec les seuils et les appareils.",
     help_off: "Coupé, puis rallumé s'il l'était. Rallumé par quelqu'un : recoupé, avec une notification.",
     help_reduced: "Un mode est imposé (Eco, un preset…), puis le précédent est remis.",
     help_alert: "Rien n'est piloté : une notification quand il se met à fonctionner pendant le délestage.",
@@ -221,6 +249,11 @@ const OFF_DOMAINS = [
 ];
 const REDUCED_DOMAINS = ["select", "input_select", "climate", "water_heater"];
 const COLORS = ["blue", "white", "red"];
+// Categorical series colours (validated for colour-blind separation), light and dark.
+const SERIES = {
+  light: ["#257de0", "#f47230", "#00b894", "#f2a600", "#ee7fac", "#008a17", "#6a4ce2", "#ec4647"],
+  dark: ["#338ced", "#e76624", "#00a888", "#d28e05", "#e24d8b", "#0aac23", "#9887ef", "#eb6263"],
+};
 // The power form shares some field names with the appliance form.
 const POWER_LABELS = { power_entity: "field_power_entity_grid", enabled: "field_power_enabled" };
 
@@ -283,6 +316,11 @@ class TempoPlannerPanel extends LitElement {
     _powerDraft: { state: true },
     _powerError: { state: true },
     _powerSaved: { state: true },
+    _chart: { state: true },
+    _chartHours: { state: true },
+    _chartWidth: { state: true },
+    _chartError: { state: true },
+    _hover: { state: true },
   };
 
   constructor() {
@@ -294,6 +332,10 @@ class TempoPlannerPanel extends LitElement {
     this._formError = null;
     this._saving = false;
     this._formsReady = false;
+    this._chart = null;
+    this._chartHours = 24;
+    this._chartWidth = 0;
+    this._hover = null;
   }
 
   connectedCallback() {
@@ -304,10 +346,47 @@ class TempoPlannerPanel extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._unsubscribe();
+    this._stopChart();
+    this._resize?.disconnect();
+    this._resize = undefined;
   }
 
   updated(changed) {
     if (changed.has("hass") && this.hass && !this._unsub) this._subscribe();
+    // The chart refreshes every minute while the Now tab shows it.
+    const wanted = this._tab === "now" && !!this._snapshot?.power?.power_entity;
+    if (wanted && !this._chartTimer) {
+      this._loadChart();
+      this._chartTimer = setInterval(() => this._loadChart(), 60000);
+    } else if (!wanted) {
+      this._stopChart();
+    }
+    const box = this.shadowRoot.querySelector(".chart-box");
+    if (box && box !== this._observed) {
+      this._resize ??= new ResizeObserver((entries) => {
+        this._chartWidth = Math.floor(entries[0].contentRect.width);
+      });
+      this._resize.disconnect();
+      this._resize.observe(box);
+      this._observed = box;
+    }
+  }
+
+  _stopChart() {
+    clearInterval(this._chartTimer);
+    this._chartTimer = undefined;
+  }
+
+  async _loadChart() {
+    try {
+      this._chart = await this.hass.callWS({
+        type: "tempo_planner/power/history",
+        hours: this._chartHours,
+      });
+      this._chartError = null;
+    } catch (err) {
+      this._chartError = err.message || String(err);
+    }
   }
 
   _subscribe() {
@@ -445,7 +524,301 @@ class TempoPlannerPanel extends LitElement {
             </ul>`}
       </div>
       </div>
+      ${s.power?.power_entity ? this._renderChartCard() : nothing}
     `;
+  }
+
+  // --- Power chart ---------------------------------------------------------
+
+  _renderChartCard() {
+    return html`
+      <div class="card chart-card">
+        <div class="chart-head">
+          <h2>${this._t("chart_title")}</h2>
+          <div class="range" role="group">
+            ${[6, 24].map(
+              (hours) => html`<button
+                class=${this._chartHours === hours ? "active" : ""}
+                aria-pressed=${this._chartHours === hours}
+                @click=${() => {
+                  this._chartHours = hours;
+                  this._chart = null;
+                  this._loadChart();
+                }}
+              >
+                ${this._t("chart_hours", { hours })}
+              </button>`,
+            )}
+          </div>
+        </div>
+        ${this._chartError
+          ? html`<div class="banner error">${this._t("error", { message: this._chartError })}</div>`
+          : nothing}
+        <div class="chart-box">${this._renderChart()}</div>
+      </div>
+    `;
+  }
+
+  _palette() {
+    return this.hass?.themes?.darkMode ? SERIES.dark : SERIES.light;
+  }
+
+  _chartModel() {
+    const c = this._chart;
+    const n = c.count;
+    const start = new Date(c.start).getTime();
+    const step = c.step * 1000;
+    const palette = this._palette();
+    const appliances = c.appliances.map((a) => {
+      const avoided = new Array(n).fill(0);
+      for (const shed of a.shed) {
+        const from = new Date(shed.start).getTime();
+        const to = new Date(shed.end).getTime();
+        for (let i = 0; i < n; i++) {
+          const t = start + i * step;
+          if (t + step > from && t < to && shed.avoided_kw) avoided[i] = shed.avoided_kw;
+        }
+      }
+      return { ...a, color: palette[a.slot % palette.length], avoided };
+    });
+    const drawn = appliances.filter((a) => a.power);
+    // Appliances stacked from the bottom, avoided power stacked above the grid line.
+    const stack = [];
+    let below = new Array(n).fill(0);
+    for (const a of drawn) {
+      const top = below.map((v, i) => v + (a.power[i] ?? 0));
+      stack.push({ appliance: a, low: below, high: top });
+      below = top;
+    }
+    const avoided = [];
+    let base = c.grid ? c.grid.map((g, i) => g ?? below[i]) : below;
+    for (const a of appliances.filter((a) => a.avoided.some((v) => v > 0))) {
+      const top = base.map((v, i) => v + a.avoided[i]);
+      avoided.push({ appliance: a, low: base, high: top });
+      base = top;
+    }
+    const peak = Math.max(
+      1,
+      ...base,
+      ...below,
+      ...(c.grid || []).map((v) => v ?? 0),
+      ...c.soft.map((v) => v ?? 0),
+      c.hard ?? 0,
+    );
+    return { c, n, start, step, appliances, stack, avoided, top: niceCeil(peak * 1.05) };
+  }
+
+  _renderChart() {
+    if (!this._chart) return html`<div class="loading">…</div>`;
+    const m = this._chartModel();
+    const { c, n } = m;
+    if (!c.grid || c.grid.every((v) => v === null)) {
+      return html`<p class="muted">${this._t("chart_no_data")}</p>`;
+    }
+    const W = Math.max(this._chartWidth || 0, 280);
+    const H = 240;
+    const ml = 44;
+    const mr = 12;
+    const mt = 10;
+    const mb = 24;
+    const pw = W - ml - mr;
+    const ph = H - mt - mb;
+    const x = (i) => ml + (n > 1 ? (i / (n - 1)) * pw : 0);
+    const y = (v) => mt + ph - (Math.max(v, 0) / m.top) * ph;
+    const area = (low, high) => {
+      let d = `M${x(0)},${y(high[0])}`;
+      for (let i = 1; i < n; i++) d += `L${x(i)},${y(high[i])}`;
+      for (let i = n - 1; i >= 0; i--) d += `L${x(i)},${y(low[i])}`;
+      return `${d}Z`;
+    };
+    const line = (values) => {
+      let d = "";
+      let pen = false;
+      values.forEach((v, i) => {
+        if (v === null || v === undefined) {
+          pen = false;
+          return;
+        }
+        d += `${pen ? "L" : "M"}${x(i)},${y(v)}`;
+        pen = true;
+      });
+      return d;
+    };
+    // One segment per run of equal values, so the dashes run on.
+    const steps = (values) => {
+      let d = "";
+      let i = 0;
+      while (i < n) {
+        const v = values[i];
+        let j = i + 1;
+        while (j < n && values[j] === v) j++;
+        if (v !== null && v !== undefined) {
+          d += `M${x(i)},${y(v)}L${x(Math.min(j, n - 1))},${y(v)}`;
+          if (j < n && values[j] !== null && values[j] !== undefined) {
+            d += `L${x(j)},${y(values[j])}`;
+          }
+        }
+        i = j;
+      }
+      return d;
+    };
+    const lastSoft = [...c.soft].reverse().find((v) => v !== null && v !== undefined);
+    const ticks = [];
+    const tickStep = niceCeil(m.top / 4);
+    for (let v = 0; v <= m.top + 1e-9; v += tickStep) ticks.push(v);
+    const every = c.count > 100 ? 3 : 1;
+    const hours = [];
+    for (let i = 0; i < n; i++) {
+      const t = new Date(m.start + i * m.step);
+      if (t.getMinutes() === 0 && t.getHours() % every === 0) hours.push({ i, t });
+    }
+    const hover = this._hover;
+    const shed = m.appliances.filter((a) => a.shed.length);
+    return html`
+      <svg
+        width=${W}
+        height=${H}
+        role="img"
+        aria-label=${this._t("chart_summary", { hours: this._chartHours })}
+        @pointermove=${(ev) => this._onHover(ev, ml, pw, n)}
+        @pointerleave=${() => (this._hover = null)}
+      >
+        <defs>
+          ${m.appliances.map(
+            (a) => svg`<pattern
+              id=${`hatch-${a.slot}`}
+              patternUnits="userSpaceOnUse"
+              width="6"
+              height="6"
+              patternTransform="rotate(45)"
+            >
+              <rect width="6" height="6" fill=${a.color} fill-opacity="0.12"></rect>
+              <line x1="0" y1="0" x2="0" y2="6" stroke=${a.color} stroke-width="2"></line>
+            </pattern>`,
+          )}
+        </defs>
+        ${ticks.map(
+          (v) => svg`<line class="gridline" x1=${ml} x2=${W - mr} y1=${y(v)} y2=${y(v)}></line>
+            <text class="tick" x=${ml - 6} y=${y(v) + 4} text-anchor="end">${this._kw(v)}</text>`,
+        )}
+        ${hours.map(
+          ({ i, t }) => svg`<text class="tick" x=${x(i)} y=${H - 6} text-anchor="middle">
+            ${t.toLocaleTimeString(this.hass.language, { hour: "2-digit", minute: "2-digit" })}
+          </text>`,
+        )}
+        ${m.stack.map(
+          ({ appliance, low, high }) => svg`<path
+            class="stack"
+            d=${area(low, high)}
+            fill=${appliance.color}
+            fill-opacity="0.85"
+          ></path>`,
+        )}
+        ${m.avoided.map(
+          ({ appliance, low, high }) => svg`<path
+            class="stack"
+            d=${area(low, high)}
+            fill=${`url(#hatch-${appliance.slot})`}
+          ></path>`,
+        )}
+        <path class="soft-line" d=${steps(c.soft)}></path>
+        ${lastSoft !== undefined
+          ? svg`<text class="limit-label" x=${W - mr - 2} y=${y(lastSoft) - 5} text-anchor="end">
+              ${this._t("chart_soft")} ${this._kw(lastSoft)} kW
+            </text>`
+          : nothing}
+        ${c.hard !== null && c.hard !== undefined
+          ? svg`<line class="hard-line" x1=${ml} x2=${W - mr} y1=${y(c.hard)} y2=${y(c.hard)}></line>
+              <text class="limit-label" x=${W - mr - 2} y=${y(c.hard) - 5} text-anchor="end">
+                ${this._t("chart_hard")} ${this._kw(c.hard)} kW
+              </text>`
+          : nothing}
+        <path class="grid-line" d=${line(c.grid)}></path>
+        ${hover !== null
+          ? svg`<line class="cursor" x1=${x(hover)} x2=${x(hover)} y1=${mt} y2=${mt + ph}></line>
+              ${c.grid[hover] !== null
+                ? svg`<circle class="dot" cx=${x(hover)} cy=${y(c.grid[hover])} r="4"></circle>`
+                : nothing}`
+          : nothing}
+      </svg>
+      ${hover !== null ? this._renderTooltip(m, hover, x(hover), W) : nothing}
+      <div class="legend">
+        <span><i class="key grid"></i>${this._t("chart_grid")}</span>
+        <span><i class="key soft"></i>${this._t("chart_soft")}</span>
+        ${c.hard !== null && c.hard !== undefined
+          ? html`<span><i class="key hard"></i>${this._t("chart_hard")}</span>`
+          : nothing}
+        ${m.stack.map(
+          ({ appliance }) =>
+            html`<span><i class="key" style="background: ${appliance.color}"></i>${appliance.name}</span>`,
+        )}
+        ${m.avoided.length
+          ? html`<span><i class="key avoided"></i>${this._t("chart_avoided")}</span>`
+          : nothing}
+      </div>
+      ${shed.length
+        ? html`<div class="timeline" style="--left: ${ml}px; --right: ${mr}px">
+            ${shed.map(
+              (a) => html`<div class="row">
+                <span class="row-name">${a.name}</span>
+                <div class="track">
+                  ${a.shed.map((s) => {
+                    const span = m.n * m.step;
+                    const from = (new Date(s.start).getTime() - m.start) / span;
+                    const to = (new Date(s.end).getTime() - m.start) / span;
+                    return html`<span
+                      class="bar ${s.reason}"
+                      style="left: ${from * 100}%; width: ${Math.max((to - from) * 100, 0.5)}%; --c: ${a.color}"
+                      title="${this._t("chart_shed")} · ${this._t(`reason_${s.reason}`)} · ${this._time(s.start)} → ${this._time(s.end)}"
+                    ></span>`;
+                  })}
+                </div>
+              </div>`,
+            )}
+          </div>`
+        : nothing}
+    `;
+  }
+
+  _onHover(ev, ml, pw, n) {
+    const rect = ev.currentTarget.getBoundingClientRect();
+    const i = Math.round(((ev.clientX - rect.left - ml) / pw) * (n - 1));
+    this._hover = i < 0 || i >= n ? null : i;
+  }
+
+  _renderTooltip(m, i, left, width) {
+    const c = m.c;
+    const at = new Date(m.start + i * m.step);
+    const value = (v) => (v === null || v === undefined ? "–" : `${this._kw(v)} kW`);
+    const flip = left > width / 2;
+    return html`<div
+      class="tooltip"
+      style=${flip ? `right: ${width - left + 12}px` : `left: ${left + 12}px`}
+    >
+      <div class="tip-time">
+        ${at.toLocaleTimeString(this.hass.language, { hour: "2-digit", minute: "2-digit" })}
+      </div>
+      <div><i class="key grid"></i>${this._t("chart_grid")} <b>${value(c.grid[i])}</b></div>
+      ${c.soft[i] !== null
+        ? html`<div><i class="key soft"></i>${this._t("chart_soft")} <b>${value(c.soft[i])}</b></div>`
+        : nothing}
+      ${m.stack.map(
+        ({ appliance }) =>
+          html`<div>
+            <i class="key" style="background: ${appliance.color}"></i>${appliance.name}
+            <b>${value(appliance.power[i])}</b>
+          </div>`,
+      )}
+      ${m.avoided
+        .filter(({ appliance }) => appliance.avoided[i] > 0)
+        .map(
+          ({ appliance }) =>
+            html`<div>
+              <i class="key avoided"></i>${appliance.name} (${this._t("chart_avoided").toLowerCase()})
+              <b>${value(appliance.avoided[i])}</b>
+            </div>`,
+        )}
+    </div>`;
   }
 
   _renderAppliances() {
@@ -1146,6 +1519,173 @@ class TempoPlannerPanel extends LitElement {
     }
     .mark.hard {
       opacity: 1;
+    }
+    .chart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .chart-head h2 {
+      margin: 0;
+    }
+    .range {
+      display: flex;
+      gap: 4px;
+    }
+    .range button {
+      padding: 4px 12px;
+    }
+    .range button.active {
+      background: var(--primary-color);
+      border-color: var(--primary-color);
+      color: var(--text-primary-color, #fff);
+    }
+    .chart-box {
+      position: relative;
+      margin-top: 12px;
+    }
+    .chart-box svg {
+      display: block;
+      touch-action: pan-y;
+    }
+    .gridline {
+      stroke: var(--divider-color);
+      stroke-width: 1;
+    }
+    .tick {
+      fill: var(--secondary-text-color);
+      font-size: 11px;
+    }
+    .stack {
+      stroke: var(--card-background-color, var(--ha-card-background, #fff));
+      stroke-width: 1;
+    }
+    .grid-line {
+      fill: none;
+      stroke: var(--primary-text-color);
+      stroke-width: 2;
+      stroke-linejoin: round;
+    }
+    /* The limits in neutral ink and dashes, apart from the series' colours. */
+    .soft-line {
+      fill: none;
+      stroke: var(--secondary-text-color);
+      stroke-width: 2;
+      stroke-dasharray: 6 4;
+    }
+    .limit-label {
+      fill: var(--secondary-text-color);
+      font-size: 11px;
+      paint-order: stroke;
+      stroke: var(--card-background-color, #fff);
+      stroke-width: 3px;
+    }
+    .hard-line {
+      stroke: var(--error-color, #db4437);
+      stroke-width: 2;
+      stroke-dasharray: 2 4;
+    }
+    .cursor {
+      stroke: var(--secondary-text-color);
+      stroke-width: 1;
+    }
+    .dot {
+      fill: var(--primary-text-color);
+      stroke: var(--card-background-color, #fff);
+      stroke-width: 2;
+    }
+    .tooltip {
+      position: absolute;
+      top: 8px;
+      z-index: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--card-background-color, #fff);
+      border: 1px solid var(--divider-color);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      font-size: 13px;
+      line-height: 1.6;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .tip-time {
+      font-weight: 500;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 16px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--secondary-text-color);
+    }
+    .key {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 6px;
+      border-radius: 3px;
+      vertical-align: -1px;
+    }
+    .key.grid {
+      height: 2px;
+      vertical-align: 3px;
+      background: var(--primary-text-color);
+    }
+    .key.soft,
+    .key.hard {
+      height: 0;
+      vertical-align: 3px;
+      border-top: 2px dashed var(--secondary-text-color);
+      border-radius: 0;
+    }
+    .key.hard {
+      border-top: 2px dotted var(--error-color, #db4437);
+    }
+    .key.avoided {
+      background: repeating-linear-gradient(
+        45deg,
+        var(--secondary-text-color) 0 2px,
+        transparent 2px 5px
+      );
+    }
+    .timeline {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .timeline .row {
+      display: grid;
+      grid-template-columns: minmax(80px, 160px) 1fr;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .row-name {
+      color: var(--secondary-text-color);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .track {
+      position: relative;
+      height: 12px;
+      border-radius: 6px;
+      background: var(--divider-color);
+    }
+    .bar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      border-radius: 6px;
+      background: var(--c);
+    }
+    .bar.power {
+      background: repeating-linear-gradient(45deg, var(--c) 0 3px, transparent 3px 6px);
+      border: 1px solid var(--c);
+      box-sizing: border-box;
     }
     .editor h3 {
       margin: 24px 0 0;
