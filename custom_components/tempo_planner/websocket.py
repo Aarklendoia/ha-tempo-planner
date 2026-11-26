@@ -83,6 +83,9 @@ _ANNOUNCEMENTS = vol.Schema(
         vol.Optional("tts_entity"): vol.Any(None, cv.entity_id),
         vol.Optional("media_players", default=[]): [cv.entity_id],
         vol.Optional("voice_only_home", default=True): cv.boolean,
+        vol.Optional("voice_volume"): vol.Any(
+            None, vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
+        ),
         vol.Optional("car_reminder_pct", default=80): vol.Any(
             None, vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
         ),

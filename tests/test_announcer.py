@@ -1,11 +1,16 @@
 """Announcements of tomorrow's colour inside Home Assistant."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+    async_mock_service,
+)
 
 from custom_components.tempo_planner import const
 
@@ -39,6 +44,7 @@ def calls(hass: HomeAssistant) -> dict[str, list]:
     return {
         "notify": async_mock_service(hass, "notify", "famille"),
         "speak": async_mock_service(hass, "tts", "speak"),
+        "volume": async_mock_service(hass, "media_player", "volume_set"),
     }
 
 
@@ -194,3 +200,53 @@ async def test_settings_kept_across_a_reload(
     assert announcer.settings.notify_targets == ["notify.famille"]
     # Already announced before the reload.
     assert len(calls["notify"]) == 1
+
+
+async def test_voice_volume_set_then_put_back(
+    hass: HomeAssistant, planner, calls, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    kitchen, living = VOICE["media_players"]
+    hass.states.async_set(kitchen, "idle", {"volume_level": 0.3})
+    hass.states.async_set(living, "idle", {"volume_level": 0.36})
+    client = await hass_ws_client(hass)
+    assert (await configure(client, **VOICE, voice_volume=70))["success"]
+    await move_to(hass, freezer, datetime(2026, 11, 23, 19, 0, tzinfo=PARIS))
+    assert len(calls["speak"]) == 1
+    assert [c.data for c in calls["volume"]] == [
+        {"entity_id": [kitchen, living], "volume_level": 0.7}
+    ]
+
+    # Back once both have played.
+    for player in (kitchen, living):
+        hass.states.async_set(player, "playing", {"volume_level": 0.7})
+    await hass.async_block_till_done()
+    hass.states.async_set(kitchen, "idle", {"volume_level": 0.7})
+    await hass.async_block_till_done()
+    assert len(calls["volume"]) == 1
+    hass.states.async_set(living, "idle", {"volume_level": 0.7})
+    await hass.async_block_till_done()
+    assert {c.data["entity_id"]: c.data["volume_level"] for c in calls["volume"][1:]} == {
+        kitchen: 0.3,
+        living: 0.36,
+    }
+    # Once only, though the timeout comes later.
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61))
+    await hass.async_block_till_done()
+    assert len(calls["volume"]) == 3
+
+
+async def test_voice_volume_put_back_after_a_minute(
+    hass: HomeAssistant, planner, calls, hass_ws_client
+) -> None:
+    kitchen, living = VOICE["media_players"]
+    hass.states.async_set(kitchen, "idle", {"volume_level": 0.3})
+    client = await hass_ws_client(hass)
+    assert (await configure(client, **VOICE, voice_volume=70))["success"]
+    await client.send_json_auto_id({"type": "tempo_planner/announcements/test", "channel": "voice"})
+    assert (await client.receive_json())["success"]
+    await hass.async_block_till_done()
+    # The living room has no volume to put back; the kitchen never reports playing.
+    assert len(calls["volume"]) == 1
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61))
+    await hass.async_block_till_done()
+    assert [c.data for c in calls["volume"][1:]] == [{"entity_id": kitchen, "volume_level": 0.3}]

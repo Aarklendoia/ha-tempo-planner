@@ -165,13 +165,15 @@ threshold (80 % by default):
 - by **notification**, to one or more `notify.*` services, as soon as tomorrow's
   colour is known (white and red by default);
 - by **voice**, with `tts.speak` on the chosen speakers at a set time (19:00 by
-  default), only when someone is at home (`zone.home`) unless told otherwise.
+  default), only when someone is at home (`zone.home`) unless told otherwise;
+  with a volume, the speakers are set to it for the announcement and put back
+  once they stop playing (a minute at most).
 
 *Try it* announces tomorrow at once (a red day when not known yet) with the saved
 settings. Over WebSocket: `tempo_planner/announcements/save` with
 `announcements` (`notify_enabled`, `notify_colors`, `notify_targets`,
 `voice_enabled`, `voice_colors`, `voice_time`, `tts_entity`, `media_players`,
-`voice_only_home`, `car_reminder_pct`) and `tempo_planner/announcements/test`
+`voice_only_home`, `voice_volume`, `car_reminder_pct`) and `tempo_planner/announcements/test`
 with a `channel` (`notify` or `voice`); the settings are in the
 `tempo_planner/subscribe` snapshot.
 
@@ -314,7 +316,8 @@ jour et par couleur, avec les appareils délestés ce jour-là et, la veille d'u
 jour rouge, un rappel de brancher la voiture si sa charge est sous un seuil
 (80 % par défaut) : par **notification** dès que la couleur est connue, et à la
 **voix** sur les enceintes choisies à l'heure choisie (19 h par défaut),
-seulement si quelqu'un est à la maison. *Essayer* annonce demain tout de suite.
+seulement si quelqu'un est à la maison, au volume choisi s'il y en a un (remis
+ensuite). *Essayer* annonce demain tout de suite.
 
 Installation par HACS (dépôt personnalisé ci-dessus), puis *Paramètres →
 Appareils et services → Ajouter une intégration → Tempo Planner*. Seule la

@@ -135,6 +135,8 @@ const TEXTS = {
     announce_voice: "Voice",
     announce_voice_help: "Spoken at the set time on the chosen speakers.",
     announce_car: "Car",
+    announce_car_help: "On the eve of a red day, both announcements remind to plug the car in when its charge is low.",
+    field_voice_volume: "Volume (empty: as it is)",
     announce_test: "Try it",
     announce_test_help: "Announces tomorrow now (a red day when not known yet), with the saved settings.",
     announce_sent: "Sent.",
@@ -147,7 +149,7 @@ const TEXTS = {
     field_tts_entity: "Voice (text-to-speech)",
     field_media_players: "Speakers",
     field_voice_only_home: "Only when someone is at home",
-    field_car_reminder_pct: "Remind to plug the car in under (%), empty: never",
+    field_car_reminder_pct: "Under (empty: never)",
     watched_now: "Watched",
     watched: "Watched",
     running_now: "Running!",
@@ -274,6 +276,8 @@ const TEXTS = {
     announce_voice: "Annonce vocale",
     announce_voice_help: "Prononcée à l'heure choisie sur les enceintes choisies.",
     announce_car: "Voiture",
+    announce_car_help: "La veille d'un jour rouge, les deux annonces rappellent de brancher la voiture si sa charge est basse.",
+    field_voice_volume: "Volume (vide : tel quel)",
     announce_test: "Essayer",
     announce_test_help: "Annonce demain tout de suite (un jour rouge s'il n'est pas encore connu), avec les réglages enregistrés.",
     announce_sent: "Envoyé.",
@@ -286,7 +290,7 @@ const TEXTS = {
     field_tts_entity: "Voix (synthèse vocale)",
     field_media_players: "Enceintes",
     field_voice_only_home: "Seulement si quelqu'un est à la maison",
-    field_car_reminder_pct: "Rappeler de brancher la voiture sous (%), vide : jamais",
+    field_car_reminder_pct: "Sous (vide : jamais)",
     watched_now: "Sous surveillance",
     watched: "Surveillé",
     running_now: "En marche !",
@@ -1492,101 +1496,119 @@ class TempoPlannerPanel extends LitElement {
   // --- Announcements -----------------------------------------------------
 
   _renderAnnouncements() {
+    if (!this._formsReady) return html`<div class="loading">…</div>`;
     const draft = this._announceDraft || this._snapshot.announcements;
     const option = (value, label) => ({ value, label });
-    const colors = {
-      select: { multiple: true, options: COLORS.map((c) => option(c, this._t(c))) },
-    };
     const notify = Object.keys(this.hass.services?.notify || {})
       .sort()
       .map((service) => option(`notify.${service}`, service));
-    const section = (title, help, schema, channel) => html`
-      <div class="section">
-        <div class="section-head">
-          <h3>${this._t(title)}</h3>
-          ${channel
-            ? html`<button
-                ?disabled=${!!this._announceDraft}
-                title=${this._t("announce_test_help")}
-                @click=${() => this._testAnnouncement(channel)}
-              >
-                ${this._t("announce_test")}
-              </button>`
-            : nothing}
-        </div>
-        ${help ? html`<p class="muted">${this._t(help)}</p>` : nothing}
-        <ha-form
-          .hass=${this.hass}
-          .data=${draft}
-          .schema=${schema}
-          .computeLabel=${(field) => this._t(`field_${field.name}`)}
-          @value-changed=${(ev) => {
-            this._announceDraft = { ...draft, ...ev.detail.value };
-            this._announceNote = null;
-          }}
-        ></ha-form>
-      </div>
-    `;
-    if (!this._formsReady) return html`<div class="loading">…</div>`;
-    return html`
-      <div class="card editor">
-        <h2>${this._t("announcements")}</h2>
-        <p class="muted">${this._t("announcements_help")}</p>
-        <div class="grid">
-          ${section(
-            "announce_notify",
-            "announce_notify_help",
-            [
-              { name: "notify_enabled", selector: { boolean: {} } },
-              { name: "notify_colors", selector: colors },
-              {
-                name: "notify_targets",
-                selector: { select: { multiple: true, custom_value: true, options: notify } },
-              },
-            ],
-            "notify",
-          )}
-          ${section(
-            "announce_voice",
-            "announce_voice_help",
-            [
-              { name: "voice_enabled", selector: { boolean: {} } },
-              { name: "voice_colors", selector: colors },
-              { name: "voice_time", selector: { time: {} } },
-              { name: "tts_entity", selector: { entity: { domain: "tts" } } },
-              {
-                name: "media_players",
-                selector: { entity: { domain: "media_player", multiple: true } },
-              },
-              { name: "voice_only_home", selector: { boolean: {} } },
-            ],
-            "voice",
-          )}
-        </div>
-        ${section("announce_car", null, [
-          {
-            name: "car_reminder_pct",
-            selector: { number: { min: 0, max: 100, step: 5, mode: "box", unit_of_measurement: "%" } },
-          },
-        ])}
-        ${this._announceError
-          ? html`<div class="banner error">${this._t("error", { message: this._announceError })}</div>`
-          : nothing}
-        <div class="actions">
-          ${this._announceNote ? html`<span class="muted">${this._t(this._announceNote)}</span>` : nothing}
-          <button
-            ?disabled=${!this._announceDraft}
-            @click=${() => {
-              this._announceDraft = null;
-              this._announceError = null;
-            }}
+    const change = (values) => {
+      this._announceDraft = { ...draft, ...values };
+      this._announceNote = null;
+    };
+    const form = (schema) => html`<ha-form
+      .hass=${this.hass}
+      .data=${draft}
+      .schema=${schema}
+      .computeLabel=${(field) => this._t(`field_${field.name}`)}
+      @value-changed=${(ev) => change(ev.detail.value)}
+    ></ha-form>`;
+    // Three chips to toggle, coloured like the days.
+    const colors = (key) => html`<div class="color-toggles" role="group" aria-label=${this._t("field_colors")}>
+      ${COLORS.map((c) => {
+        const on = (draft[key] || []).includes(c);
+        return html`<button
+          class="chip ${c} ${on ? "" : "off"}"
+          aria-pressed=${on}
+          @click=${() =>
+            change({
+              [key]: on ? draft[key].filter((x) => x !== c) : COLORS.filter((x) => x === c || draft[key].includes(x)),
+            })}
+        >
+          ${on ? "✓ " : ""}${this._t(c)}
+        </button>`;
+      })}
+    </div>`;
+    const head = (title, enabledKey, channel) => html`<div class="section-head">
+      <h2>${this._t(title)}</h2>
+      ${channel
+        ? html`<button
+            ?disabled=${!!this._announceDraft}
+            title=${this._t("announce_test_help")}
+            @click=${() => this._testAnnouncement(channel)}
           >
-            ${this._t("cancel")}
-          </button>
-          <button class="primary" ?disabled=${!this._announceDraft} @click=${this._saveAnnouncements}>
-            ${this._t("save")}
-          </button>
+            ${this._t("announce_test")}
+          </button>`
+        : nothing}
+      ${enabledKey
+        ? html`<label class="switch" title=${this._t(`field_${enabledKey}`)}>
+            <input
+              type="checkbox"
+              .checked=${!!draft[enabledKey]}
+              aria-label=${this._t(`field_${enabledKey}`)}
+              @change=${(ev) => change({ [enabledKey]: ev.target.checked })}
+            />
+            <span class="slider"></span>
+          </label>`
+        : nothing}
+    </div>`;
+    return html`
+      <p class="muted intro">${this._t("announcements_help")}</p>
+      <div class="grid announce">
+        <div class="card ${draft.notify_enabled ? "" : "disabled"}">
+          ${head("announce_notify", "notify_enabled", "notify")}
+          <p class="muted">${this._t("announce_notify_help")}</p>
+          ${colors("notify_colors")}
+          ${form([
+            {
+              name: "notify_targets",
+              selector: { select: { multiple: true, custom_value: true, options: notify } },
+            },
+          ])}
         </div>
+        <div class="card ${draft.voice_enabled ? "" : "disabled"}">
+          ${head("announce_voice", "voice_enabled", "voice")}
+          <p class="muted">${this._t("announce_voice_help")}</p>
+          ${colors("voice_colors")}
+          ${form([
+            { name: "voice_time", selector: { time: { no_second: true } } },
+            { name: "tts_entity", selector: { entity: { domain: "tts" } } },
+            { name: "media_players", selector: { entity: { domain: "media_player", multiple: true } } },
+            {
+              name: "voice_volume",
+              selector: { number: { min: 0, max: 100, step: 5, mode: "slider", unit_of_measurement: "%" } },
+            },
+            { name: "voice_only_home", selector: { boolean: {} } },
+          ])}
+        </div>
+        <div class="card">
+          ${head("announce_car")}
+          <p class="muted">${this._t("announce_car_help")}</p>
+          ${form([
+            {
+              name: "car_reminder_pct",
+              selector: { number: { min: 0, max: 100, step: 5, mode: "box", unit_of_measurement: "%" } },
+            },
+          ])}
+        </div>
+      </div>
+      ${this._announceError
+        ? html`<div class="banner error">${this._t("error", { message: this._announceError })}</div>`
+        : nothing}
+      <div class="actions">
+        ${this._announceNote ? html`<span class="muted">${this._t(this._announceNote)}</span>` : nothing}
+        <button
+          ?disabled=${!this._announceDraft}
+          @click=${() => {
+            this._announceDraft = null;
+            this._announceError = null;
+          }}
+        >
+          ${this._t("cancel")}
+        </button>
+        <button class="primary" ?disabled=${!this._announceDraft} @click=${this._saveAnnouncements}>
+          ${this._t("save")}
+        </button>
       </div>
     `;
   }
@@ -1594,7 +1616,7 @@ class TempoPlannerPanel extends LitElement {
   async _saveAnnouncements() {
     this._announceError = null;
     const announcements = { ...this._announceDraft };
-    for (const key of ["tts_entity", "car_reminder_pct"]) {
+    for (const key of ["tts_entity", "car_reminder_pct", "voice_volume"]) {
       if (announcements[key] === "" || announcements[key] === undefined) announcements[key] = null;
     }
     try {
@@ -2082,19 +2104,46 @@ class TempoPlannerPanel extends LitElement {
     .appliance.disabled .grow {
       opacity: 0.6;
     }
+    .intro {
+      margin: 0;
+    }
+    .announce .card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .announce .card p {
+      margin: 0;
+    }
+    .announce .card.disabled > :not(.section-head) {
+      opacity: 0.55;
+    }
+    .color-toggles {
+      display: flex;
+      gap: 8px;
+    }
+    .color-toggles .chip {
+      font: inherit;
+      font-size: 14px;
+      padding: 4px 14px;
+      cursor: pointer;
+      margin: 0;
+    }
+    .color-toggles .chip.off {
+      background: transparent;
+      color: var(--secondary-text-color);
+      border-color: var(--divider-color);
+    }
     .section-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
     }
+    .section-head h2,
     .section-head h3 {
-      margin: 8px 0 0;
-      font-size: 16px;
-      font-weight: 500;
-    }
-    .grid + .section {
-      margin-top: 16px;
+      margin: 0;
+      flex: 1;
     }
     .actions {
       display: flex;

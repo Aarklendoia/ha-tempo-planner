@@ -76,6 +76,7 @@ def test_settings_round_trip_and_defaults() -> None:
         tts_entity="tts.google",
         media_players=["media_player.kitchen"],
         car_reminder_pct=None,
+        voice_volume=70,
     )
     assert AnnouncementSettings.from_dict(settings.to_dict()) == settings
     assert settings.enabled(Channel.NOTIFY) and settings.enabled(Channel.VOICE)
