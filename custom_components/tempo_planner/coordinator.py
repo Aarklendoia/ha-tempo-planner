@@ -42,6 +42,7 @@ from .review import (
 from .solar import hourly_profile
 
 if TYPE_CHECKING:
+    from .announcer import Announcer
     from .load_shedding import LoadShedder
 
 _LOGGER = logging.getLogger(__name__)
@@ -128,6 +129,7 @@ class TempoPlannerCoordinator(DataUpdateCoordinator[Plan]):
         self._settings = settings_from(self._config)
         # Set up right after the coordinator, see async_setup_entry.
         self.shedder: LoadShedder
+        self.announcer: Announcer
         # Hourly house consumption, reloaded once a day.
         self._hours: list[tuple[datetime, float]] = []
         self._hours_day: date | None = None

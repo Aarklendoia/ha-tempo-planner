@@ -127,6 +127,27 @@ const TEXTS = {
     help_off: "Turned off, back on afterwards if it was on. Turned back on by someone: off again, with a notification.",
     help_reduced: "A mode is forced (Eco, a preset…), the previous one restored afterwards.",
     help_alert: "Nothing is driven: a notification when it starts running while shed.",
+    announcements: "Announcements",
+    announcements_help:
+      "Tomorrow's colour, with the appliances shed and, on the eve of a red day, the car to plug in when its charge is low. Once per day and colour.",
+    announce_notify: "Notification",
+    announce_notify_help: "Sent as soon as tomorrow's colour is known.",
+    announce_voice: "Voice",
+    announce_voice_help: "Spoken at the set time on the chosen speakers.",
+    announce_car: "Car",
+    announce_test: "Try it",
+    announce_test_help: "Announces tomorrow now (a red day when not known yet), with the saved settings.",
+    announce_sent: "Sent.",
+    field_notify_enabled: "Notify tomorrow's colour",
+    field_notify_colors: "Colours",
+    field_notify_targets: "Notify with",
+    field_voice_enabled: "Speak tomorrow's colour",
+    field_voice_colors: "Colours",
+    field_voice_time: "At",
+    field_tts_entity: "Voice (text-to-speech)",
+    field_media_players: "Speakers",
+    field_voice_only_home: "Only when someone is at home",
+    field_car_reminder_pct: "Remind to plug the car in under (%), empty: never",
     error: "Error: {message}",
   },
   fr: {
@@ -241,6 +262,27 @@ const TEXTS = {
     help_off: "Coupé, puis rallumé s'il l'était. Rallumé par quelqu'un : recoupé, avec une notification.",
     help_reduced: "Un mode est imposé (Eco, un preset…), puis le précédent est remis.",
     help_alert: "Rien n'est piloté : une notification quand il se met à fonctionner pendant le délestage.",
+    announcements: "Annonces",
+    announcements_help:
+      "La couleur de demain, avec les appareils délestés et, la veille d'un jour rouge, la voiture à brancher si sa charge est basse. Une fois par jour et par couleur.",
+    announce_notify: "Notification",
+    announce_notify_help: "Envoyée dès que la couleur de demain est connue.",
+    announce_voice: "Annonce vocale",
+    announce_voice_help: "Prononcée à l'heure choisie sur les enceintes choisies.",
+    announce_car: "Voiture",
+    announce_test: "Essayer",
+    announce_test_help: "Annonce demain tout de suite (un jour rouge s'il n'est pas encore connu), avec les réglages enregistrés.",
+    announce_sent: "Envoyé.",
+    field_notify_enabled: "Notifier la couleur de demain",
+    field_notify_colors: "Couleurs",
+    field_notify_targets: "Notifier avec",
+    field_voice_enabled: "Annoncer la couleur de demain",
+    field_voice_colors: "Couleurs",
+    field_voice_time: "À",
+    field_tts_entity: "Voix (synthèse vocale)",
+    field_media_players: "Enceintes",
+    field_voice_only_home: "Seulement si quelqu'un est à la maison",
+    field_car_reminder_pct: "Rappeler de brancher la voiture sous (%), vide : jamais",
     error: "Erreur : {message}",
   },
 };
@@ -334,6 +376,9 @@ class TempoPlannerPanel extends LitElement {
     _chartWidth: { state: true },
     _chartError: { state: true },
     _hover: { state: true },
+    _announceDraft: { state: true },
+    _announceError: { state: true },
+    _announceNote: { state: true },
   };
 
   constructor() {
@@ -457,7 +502,7 @@ class TempoPlannerPanel extends LitElement {
         <div class="title">Tempo Planner</div>
       </div>
       <div class="tabs" role="tablist">
-        ${["now", "appliances", "power"].map(
+        ${["now", "appliances", "power", "announcements"].map(
           (tab) => html`
             <button
               role="tab"
@@ -480,7 +525,9 @@ class TempoPlannerPanel extends LitElement {
             ? this._renderNow()
             : this._tab === "appliances"
               ? this._renderAppliances()
-              : this._renderPower()}
+              : this._tab === "power"
+                ? this._renderPower()
+                : this._renderAnnouncements()}
       </div>
     `;
   }
@@ -1217,7 +1264,7 @@ class TempoPlannerPanel extends LitElement {
 
   async _select(tab) {
     this._tab = tab;
-    if (tab === "power" && !this._formsReady) {
+    if ((tab === "power" || tab === "announcements") && !this._formsReady) {
       try {
         await loadForms();
         this._formsReady = true;
@@ -1406,6 +1453,133 @@ class TempoPlannerPanel extends LitElement {
     }
   }
 
+  // --- Announcements -----------------------------------------------------
+
+  _renderAnnouncements() {
+    const draft = this._announceDraft || this._snapshot.announcements;
+    const option = (value, label) => ({ value, label });
+    const colors = {
+      select: { multiple: true, options: COLORS.map((c) => option(c, this._t(c))) },
+    };
+    const notify = Object.keys(this.hass.services?.notify || {})
+      .sort()
+      .map((service) => option(`notify.${service}`, service));
+    const section = (title, help, schema, channel) => html`
+      <div class="section">
+        <div class="section-head">
+          <h3>${this._t(title)}</h3>
+          ${channel
+            ? html`<button
+                ?disabled=${!!this._announceDraft}
+                title=${this._t("announce_test_help")}
+                @click=${() => this._testAnnouncement(channel)}
+              >
+                ${this._t("announce_test")}
+              </button>`
+            : nothing}
+        </div>
+        ${help ? html`<p class="muted">${this._t(help)}</p>` : nothing}
+        <ha-form
+          .hass=${this.hass}
+          .data=${draft}
+          .schema=${schema}
+          .computeLabel=${(field) => this._t(`field_${field.name}`)}
+          @value-changed=${(ev) => {
+            this._announceDraft = { ...draft, ...ev.detail.value };
+            this._announceNote = null;
+          }}
+        ></ha-form>
+      </div>
+    `;
+    if (!this._formsReady) return html`<div class="loading">…</div>`;
+    return html`
+      <div class="card editor">
+        <h2>${this._t("announcements")}</h2>
+        <p class="muted">${this._t("announcements_help")}</p>
+        <div class="grid">
+          ${section(
+            "announce_notify",
+            "announce_notify_help",
+            [
+              { name: "notify_enabled", selector: { boolean: {} } },
+              { name: "notify_colors", selector: colors },
+              {
+                name: "notify_targets",
+                selector: { select: { multiple: true, custom_value: true, options: notify } },
+              },
+            ],
+            "notify",
+          )}
+          ${section(
+            "announce_voice",
+            "announce_voice_help",
+            [
+              { name: "voice_enabled", selector: { boolean: {} } },
+              { name: "voice_colors", selector: colors },
+              { name: "voice_time", selector: { time: {} } },
+              { name: "tts_entity", selector: { entity: { domain: "tts" } } },
+              {
+                name: "media_players",
+                selector: { entity: { domain: "media_player", multiple: true } },
+              },
+              { name: "voice_only_home", selector: { boolean: {} } },
+            ],
+            "voice",
+          )}
+        </div>
+        ${section("announce_car", null, [
+          {
+            name: "car_reminder_pct",
+            selector: { number: { min: 0, max: 100, step: 5, mode: "box", unit_of_measurement: "%" } },
+          },
+        ])}
+        ${this._announceError
+          ? html`<div class="banner error">${this._t("error", { message: this._announceError })}</div>`
+          : nothing}
+        <div class="actions">
+          ${this._announceNote ? html`<span class="muted">${this._t(this._announceNote)}</span>` : nothing}
+          <button
+            ?disabled=${!this._announceDraft}
+            @click=${() => {
+              this._announceDraft = null;
+              this._announceError = null;
+            }}
+          >
+            ${this._t("cancel")}
+          </button>
+          <button class="primary" ?disabled=${!this._announceDraft} @click=${this._saveAnnouncements}>
+            ${this._t("save")}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  async _saveAnnouncements() {
+    this._announceError = null;
+    const announcements = { ...this._announceDraft };
+    for (const key of ["tts_entity", "car_reminder_pct"]) {
+      if (announcements[key] === "" || announcements[key] === undefined) announcements[key] = null;
+    }
+    try {
+      await this.hass.callWS({ type: "tempo_planner/announcements/save", announcements });
+      this._announceDraft = null;
+      this._announceNote = "saved";
+    } catch (err) {
+      this._announceError = err.message || String(err);
+    }
+  }
+
+  async _testAnnouncement(channel) {
+    this._announceError = null;
+    try {
+      await this.hass.callWS({ type: "tempo_planner/announcements/test", channel });
+      this._announceNote = "announce_sent";
+    } catch (err) {
+      this._announceError = err.message || String(err);
+    }
+  }
+
   async _move(order, index, step) {
     const moved = [...order];
     [moved[index], moved[index + step]] = [moved[index + step], moved[index]];
@@ -1462,6 +1636,9 @@ class TempoPlannerPanel extends LitElement {
       display: flex;
       gap: 4px;
       padding: 0 16px;
+      /* Four tabs don't fit a phone: they scroll, not the page. */
+      overflow-x: auto;
+      scrollbar-width: none;
       background: var(--app-header-background-color, var(--primary-color));
     }
     .tab {
@@ -1474,6 +1651,7 @@ class TempoPlannerPanel extends LitElement {
       padding: 12px 16px;
       font: inherit;
       font-weight: 500;
+      white-space: nowrap;
       cursor: pointer;
     }
     .tab.active {
@@ -1864,6 +2042,20 @@ class TempoPlannerPanel extends LitElement {
     .appliance.disabled .grow {
       opacity: 0.6;
     }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .section-head h3 {
+      margin: 8px 0 0;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .grid + .section {
+      margin-top: 16px;
+    }
     .actions {
       display: flex;
       justify-content: flex-end;
@@ -1962,6 +2154,12 @@ class TempoPlannerPanel extends LitElement {
       }
       .days {
         gap: 20px;
+      }
+      .tabs {
+        padding: 0 4px;
+      }
+      .tab {
+        padding: 12px 10px;
       }
     }
   `;

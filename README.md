@@ -155,6 +155,26 @@ such as `notify.mobile_app_phone`, `priority`, `power_entity`, `power_kw`,
 `enabled`; with its `id` to change it), and `tempo_planner/appliances/delete`
 with an `appliance_id`.
 
+## Announcements
+
+The panel's *Announcements* tab announces tomorrow's colour, once per day and
+colour, with the appliances shed that day and, on the eve of a red day, a
+reminder to plug the car in when its charge (the car battery entity) is under a
+threshold (80 % by default):
+
+- by **notification**, to one or more `notify.*` services, as soon as tomorrow's
+  colour is known (white and red by default);
+- by **voice**, with `tts.speak` on the chosen speakers at a set time (19:00 by
+  default), only when someone is at home (`zone.home`) unless told otherwise.
+
+*Try it* announces tomorrow at once (a red day when not known yet) with the saved
+settings. Over WebSocket: `tempo_planner/announcements/save` with
+`announcements` (`notify_enabled`, `notify_colors`, `notify_targets`,
+`voice_enabled`, `voice_colors`, `voice_time`, `tts_entity`, `media_players`,
+`voice_only_home`, `car_reminder_pct`) and `tempo_planner/announcements/test`
+with a `channel` (`notify` or `voice`); the settings are in the
+`tempo_planner/subscribe` snapshot.
+
 ## Installation
 
 HACS → ⋮ → *Custom repositories* → `https://github.com/Aarklendoia/ha-tempo-planner`,
@@ -288,6 +308,13 @@ réglages ; l'onglet *Maintenant* trace les 6 ou 24 dernières heures : la
 puissance tirée du réseau, la consommation de la maison (l'écart, c'est la
 batterie : ce qu'elle fournit ou ce qu'elle charge), les seuils, la
 consommation de chaque appareil et ce que le délestage a évité.
+
+**Annonces** : l'onglet *Annonces* annonce la couleur de demain, une fois par
+jour et par couleur, avec les appareils délestés ce jour-là et, la veille d'un
+jour rouge, un rappel de brancher la voiture si sa charge est sous un seuil
+(80 % par défaut) : par **notification** dès que la couleur est connue, et à la
+**voix** sur les enceintes choisies à l'heure choisie (19 h par défaut),
+seulement si quelqu'un est à la maison. *Essayer* annonce demain tout de suite.
 
 Installation par HACS (dépôt personnalisé ci-dessus), puis *Paramètres →
 Appareils et services → Ajouter une intégration → Tempo Planner*. Seule la
