@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.9.1...v0.10.0) (2026-11-26)
+
+
+### Features
+
+* a power chart on the panel's Now tab ([#51](https://github.com/Aarklendoia/ha-tempo-planner/issues/51)) ([64e7d54](https://github.com/Aarklendoia/ha-tempo-planner/commit/64e7d54e47ea8b1b37a202b05c40dd2f2d96abb6)), closes [#50](https://github.com/Aarklendoia/ha-tempo-planner/issues/50)
+
 ## [0.9.1](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.9.0...v0.9.1) (2026-11-25)
 
 
