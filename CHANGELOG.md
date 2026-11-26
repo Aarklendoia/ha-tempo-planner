@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.12.0...v0.13.0) (2026-11-26)
+
+
+### Features
+
+* a tighter Announcements tab, and a volume for the voice ([#62](https://github.com/Aarklendoia/ha-tempo-planner/issues/62)) ([d6e8b16](https://github.com/Aarklendoia/ha-tempo-planner/commit/d6e8b16b096c09490672aadb8f8a673aa8b61f49)), closes [#61](https://github.com/Aarklendoia/ha-tempo-planner/issues/61)
+
 ## [0.12.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.11.0...v0.12.0) (2026-11-26)
 
 
