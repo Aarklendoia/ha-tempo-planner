@@ -53,6 +53,20 @@ async def test_power_history(
         }
     )
     assert (await client.receive_json())["success"]
+    # Watched only: it charges during the red day, but nothing is shed.
+    hass.states.async_set("sensor.charger_power", "7400", W)
+    await client.send_json_auto_id(
+        {
+            "type": "tempo_planner/appliances/save",
+            "appliance": {
+                "name": "Car",
+                "entity_id": "sensor.charger_power",
+                "behaviour": "alert",
+                "priority": 5,
+            },
+        }
+    )
+    assert (await client.receive_json())["success"]
     await client.send_json_auto_id(
         {
             "type": "tempo_planner/power/save",
@@ -111,3 +125,6 @@ async def test_power_history(
             "avoided_kw": 1.5,
         }
     ]
+    car = chart["appliances"][1]
+    assert car["name"] == "Car"
+    assert car["shed"] == []

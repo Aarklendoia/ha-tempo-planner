@@ -136,8 +136,8 @@ priority and a power, used by the power-based shedding to come.
 | Entity | Value |
 | --- | --- |
 | Shed *appliance* (switch) | whether the appliance may be shed |
-| *Appliance* shed (binary) | on while shed; attributes: `reason` (`tariff`), `until`, `behaviour`, `appliance_entity` |
-| Shed appliances | how many appliances are shed now; attribute: the list |
+| *Appliance* shed (binary) | on while shed; for an alert-only appliance, on while it runs when it should not; attributes: `reason` (`tariff`), `until`, `behaviour`, `appliance_entity` |
+| Shed appliances | how many appliances are shed now (alert-only ones, only watched, left out); attribute: the list |
 
 Appliances are managed in the **Tempo Planner** panel, in the sidebar (admins
 only): the *Now* tab shows today's and tomorrow's colours, the current tariff
