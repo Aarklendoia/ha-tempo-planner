@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.11.0...v0.12.0) (2026-11-26)
+
+
+### Features
+
+* announce tomorrow's colour, by notification and by voice ([#57](https://github.com/Aarklendoia/ha-tempo-planner/issues/57)) ([918cb8c](https://github.com/Aarklendoia/ha-tempo-planner/commit/918cb8cdce8b5578ca074a7b8a7f6e7b3bca98ae)), closes [#56](https://github.com/Aarklendoia/ha-tempo-planner/issues/56)
+
+
+### Bug Fixes
+
+* alert-only appliances are watched, not shed ([#60](https://github.com/Aarklendoia/ha-tempo-planner/issues/60)) ([cb2eba3](https://github.com/Aarklendoia/ha-tempo-planner/commit/cb2eba3238bff0a59b1b292fc43ba09aca9ce7d9)), closes [#59](https://github.com/Aarklendoia/ha-tempo-planner/issues/59)
+
 ## [0.11.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.10.0...v0.11.0) (2026-11-26)
 
 
