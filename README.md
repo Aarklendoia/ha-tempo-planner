@@ -124,7 +124,7 @@ each appliance's power stacked, the power avoided by shedding (hatched, above
 the grid line) and a row per appliance with its shedding periods
 (`tempo_planner/power/history`). With a *house consumption* power sensor in the
 power settings, the chart also draws what the house uses: the gap with the grid
-is what the battery and the sun supply, or, when the grid draws more, the
+is what the battery and the solar panels supply, or, when the grid draws more, the
 battery charging.
 
 At 06:00 the current colour entity of RTE Tempo lags a few seconds behind: the
