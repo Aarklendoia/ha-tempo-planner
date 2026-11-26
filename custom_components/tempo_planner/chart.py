@@ -38,6 +38,25 @@ def bucket_means(
     return [round(s / k, 3) if k else None for s, k in zip(sums, known, strict=True)]
 
 
+def merge_means(
+    series: list[float | None],
+    rows: list[tuple[datetime, float | None]],
+    start: datetime,
+    step: timedelta,
+) -> list[float | None]:
+    """`series` with the buckets the recorder's statistics cover set to their means.
+
+    `rows` are the statistics periods (their start, their mean), one bucket long
+    and aligned on the buckets.
+    """
+    merged = list(series)
+    for at, mean in rows:
+        index = int((at - start) // step)
+        if mean is not None and 0 <= index < len(merged):
+            merged[index] = round(mean, 3)
+    return merged
+
+
 def on_intervals(
     samples: list[tuple[datetime, bool, str | None]],
     start: datetime,
