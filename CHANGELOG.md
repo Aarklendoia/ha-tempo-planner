@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.10.0...v0.11.0) (2026-11-26)
+
+
+### Features
+
+* the power chart shows the house and the battery, on top of the Now tab ([#54](https://github.com/Aarklendoia/ha-tempo-planner/issues/54)) ([7cd655a](https://github.com/Aarklendoia/ha-tempo-planner/commit/7cd655afe4e9989b827ba3d3eee692630c0b1b48))
+
 ## [0.10.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.9.1...v0.10.0) (2026-11-26)
 
 
