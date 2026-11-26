@@ -162,13 +162,26 @@ async def test_alert_only(hass: HomeAssistant, planner, calls, hass_ws_client) -
     assert reply["success"], reply
     await red_day(hass)
     assert calls["notify"] == []
+    # Watched, not shed: not counted, its sensor off while it does not run.
+    car = "binary_sensor.tempo_planner_car_shed"
+    assert hass.states.get(car).state == "off"
+    assert hass.states.get(TOTAL).state == "0"
+    await client.send_json_auto_id({"type": "tempo_planner/appliances/list"})
+    status = (await client.receive_json())["result"]["appliances"][0]["status"]
+    assert (status["shed"], status["watched"], status["running"]) == (False, True, False)
+
     hass.states.async_set("sensor.charger_power", "7400")
     await hass.async_block_till_done()
+    assert hass.states.get(car).state == "on"
+    assert hass.states.get(TOTAL).state == "0"
     hass.states.async_set("sensor.charger_power", "7300")
     await hass.async_block_till_done()
     # Once per running spell.
     assert len(calls["notify"]) == 1
     assert "Car" in calls["notify"][0].data["message"]
+    hass.states.async_set("sensor.charger_power", "0")
+    await hass.async_block_till_done()
+    assert hass.states.get(car).state == "off"
 
 
 async def test_switch_off_releases(hass: HomeAssistant, planner, calls, hass_ws_client) -> None:

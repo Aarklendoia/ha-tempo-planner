@@ -46,14 +46,16 @@ class PlugTonightSensor(CoordinatorEntity[TempoPlannerCoordinator], BinarySensor
 
 
 class ShedSensor(ApplianceEntity, BinarySensorEntity):
-    """On while the appliance is shed."""
+    """On while the appliance is shed; an alert-only one, while it runs when it should not."""
 
     suffix = "shed"
     _attr_translation_key = "shed"
 
     @property
     def is_on(self) -> bool:
-        return self._shedder.status(self._id).shed
+        if self._shedder.watched(self._id):
+            return self._shedder.status(self._id).running
+        return self._shedder.is_shed(self._id)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

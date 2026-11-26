@@ -148,6 +148,10 @@ const TEXTS = {
     field_media_players: "Speakers",
     field_voice_only_home: "Only when someone is at home",
     field_car_reminder_pct: "Remind to plug the car in under (%), empty: never",
+    watched_now: "Watched",
+    watched: "Watched",
+    running_now: "Running!",
+    watched_help: "Alert if it runs",
     error: "Error: {message}",
   },
   fr: {
@@ -283,6 +287,10 @@ const TEXTS = {
     field_media_players: "Enceintes",
     field_voice_only_home: "Seulement si quelqu'un est à la maison",
     field_car_reminder_pct: "Rappeler de brancher la voiture sous (%), vide : jamais",
+    watched_now: "Sous surveillance",
+    watched: "Surveillé",
+    running_now: "En marche !",
+    watched_help: "Alerte s'il se met en marche",
     error: "Erreur : {message}",
   },
 };
@@ -539,6 +547,7 @@ class TempoPlannerPanel extends LitElement {
   _renderNow() {
     const s = this._snapshot;
     const shed = s.appliances.filter((a) => a.status.shed);
+    const watched = s.appliances.filter((a) => a.status.watched);
     const period = s.offpeak
       ? this._t("offpeak_until", { time: s.offpeak_end })
       : this._t("peak_until", { time: s.offpeak_start });
@@ -583,6 +592,28 @@ class TempoPlannerPanel extends LitElement {
                 </li>`,
               )}
             </ul>`}
+        ${watched.length
+          ? html`<h3>${this._t("watched_now")}</h3>
+              <ul class="list">
+                ${watched.map(
+                  (a) => html`<li>
+                    <ha-icon icon=${a.status.running ? "mdi:alert" : "mdi:eye-outline"}></ha-icon>
+                    <div class="grow">
+                      <div class="name">
+                        ${a.name}
+                        ${a.status.running
+                          ? html`<span class="badge">${this._t("running_now")}</span>`
+                          : nothing}
+                      </div>
+                      <div class="muted">
+                        ${this._t("watched_help")} ·
+                        ${this._t("until", { time: this._time(a.status.until) })}
+                      </div>
+                    </div>
+                  </li>`,
+                )}
+              </ul>`
+          : nothing}
       </div>
       </div>
     `;
@@ -975,7 +1006,12 @@ class TempoPlannerPanel extends LitElement {
                 ? html`<span class="badge"
                     >${this._t("shed")} · ${this._t("until", { time: this._time(a.status.until) })}</span
                   >`
-                : nothing}
+                : a.status.watched
+                  ? html`<span class="badge ${a.status.running ? "" : "quiet"}"
+                      >${this._t(a.status.running ? "running_now" : "watched")} ·
+                      ${this._t("until", { time: this._time(a.status.until) })}</span
+                    >`
+                  : nothing}
             </div>
             <div class="muted entity">${a.entity_id}</div>
             <div class="muted">
@@ -1937,7 +1973,8 @@ class TempoPlannerPanel extends LitElement {
       border: 1px solid var(--c);
       box-sizing: border-box;
     }
-    .editor h3 {
+    .editor h3,
+    .card > h3 {
       margin: 24px 0 0;
       font-size: 16px;
       font-weight: 500;
@@ -2020,6 +2057,9 @@ class TempoPlannerPanel extends LitElement {
       color: var(--secondary-text-color);
       font-size: 14px;
       margin: 4px 0 0;
+    }
+    .badge.quiet {
+      background: var(--secondary-text-color, #727272);
     }
     .badge {
       display: inline-block;

@@ -517,6 +517,9 @@ class LoadShedder:
                 changed |= await self._enforce(appliance, state, current)
             if changed:
                 self._save()
+        if changed:
+            # An alert-only appliance started or stopped running.
+            async_dispatcher_send(self.hass, signal_update(self.entry_id))
 
     async def _enforce(self, appliance: Appliance, state: ShedState, current: State | None) -> bool:
         if _missing(current) or current.context.id == state.seen:
@@ -735,10 +738,30 @@ class LoadShedder:
     def status(self, appliance_id: str) -> ShedState:
         return self.states.get(appliance_id) or ShedState()
 
+    def watched(self, appliance_id: str) -> bool:
+        """An alert-only appliance in its period: nothing is shed, it is watched."""
+        appliance = self.appliances.get(appliance_id)
+        return (
+            appliance is not None
+            and appliance.behaviour is Behaviour.ALERT
+            and self.status(appliance_id).shed
+        )
+
+    def is_shed(self, appliance_id: str) -> bool:
+        """Shed for real: an alert-only appliance never is."""
+        return self.status(appliance_id).shed and not self.watched(appliance_id)
+
     def as_list(self) -> list[dict[str, Any]]:
         """The appliances with where they stand, for the API and the panel."""
         return [
-            {**a.to_dict(), "status": self.status(a.id).to_dict()}
+            {
+                **a.to_dict(),
+                "status": {
+                    **self.status(a.id).to_dict(),
+                    "shed": self.is_shed(a.id),
+                    "watched": self.watched(a.id),
+                },
+            }
             for a in sorted(self.appliances.values(), key=lambda a: (a.priority, a.name))
         ]
 

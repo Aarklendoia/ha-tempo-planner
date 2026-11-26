@@ -15,7 +15,7 @@ from . import const
 from .chart import bucket_means, on_intervals, value_before
 from .coordinator import TempoPlannerCoordinator
 from .planner import tempo_day
-from .shedding import to_kw
+from .shedding import Behaviour, to_kw
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +80,9 @@ async def async_power_history(
             if not _missing(state)
         ]
         shed = []
+        if appliance.behaviour is Behaviour.ALERT:
+            # Watched, never shed: it avoided nothing.
+            samples = []
         for begin, finish, reason in on_intervals(samples, start, end):
             avoided = value_before(power, start, begin, STEP) if power else None
             if avoided is None:
