@@ -53,6 +53,7 @@ _POWER = vol.Schema(
     {
         vol.Optional("enabled", default=False): cv.boolean,
         vol.Optional("power_entity"): vol.Any(None, cv.entity_id),
+        vol.Optional("house_entity"): vol.Any(None, cv.entity_id),
         vol.Optional("soft_limit_kw"): _KW,
         vol.Optional("hard_limit_kw"): _KW,
         vol.Optional("soft_limits", default={}): {

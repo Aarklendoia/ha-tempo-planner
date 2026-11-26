@@ -29,6 +29,7 @@ async def test_power_history(
 ) -> None:
     async_mock_service(hass, "input_select", "select_option")
     hass.states.async_set("sensor.grid_power", "1000", W)
+    hass.states.async_set("sensor.house_power", "1200", W)
     hass.states.async_set("sensor.radiator_power", "1500", W)
     hass.states.async_set("input_select.radiator", "Confort")
     entry = MockConfigEntry(
@@ -57,6 +58,7 @@ async def test_power_history(
             "type": "tempo_planner/power/save",
             "power": {
                 "power_entity": "sensor.grid_power",
+                "house_entity": "sensor.house_power",
                 "soft_limit_kw": 6,
                 "hard_limit_kw": 9,
                 "soft_limits": {"red_peak": 3},
@@ -92,6 +94,7 @@ async def test_power_history(
     assert grid[0] is None
     assert grid[6] == 1.0  # 16:05
     assert grid[13] == 7.0  # 16:40
+    assert chart["house"][13] == 1.2
     # Today is red: 3 kW in peak hours all along, the hard limit as set.
     assert set(chart["soft"]) == {3}
     assert chart["hard"] == 9

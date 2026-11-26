@@ -119,6 +119,10 @@ const TEXTS = {
     chart_avoided: "Avoided by shedding",
     chart_shed: "Shed",
     chart_no_data: "No power history yet.",
+    chart_house: "House",
+    chart_supply: "Battery and sun",
+    chart_charge: "Charging the battery",
+    field_house_entity: "House consumption (power sensor, for the chart)",
     chart_summary: "Power drawn from the grid over the last {hours} hours, with the limits and the appliances.",
     help_off: "Turned off, back on afterwards if it was on. Turned back on by someone: off again, with a notification.",
     help_reduced: "A mode is forced (Eco, a preset…), the previous one restored afterwards.",
@@ -229,6 +233,10 @@ const TEXTS = {
     chart_avoided: "Évité par le délestage",
     chart_shed: "Délesté",
     chart_no_data: "Pas encore d'historique de puissance.",
+    chart_house: "Maison",
+    chart_supply: "Batterie et soleil",
+    chart_charge: "Charge de la batterie",
+    field_house_entity: "Consommation de la maison (capteur de puissance, pour le graphique)",
     chart_summary: "Puissance tirée du réseau sur les {hours} dernières heures, avec les seuils et les appareils.",
     help_off: "Coupé, puis rallumé s'il l'était. Rallumé par quelqu'un : recoupé, avec une notification.",
     help_reduced: "Un mode est imposé (Eco, un preset…), puis le précédent est remis.",
@@ -249,10 +257,15 @@ const OFF_DOMAINS = [
 ];
 const REDUCED_DOMAINS = ["select", "input_select", "climate", "water_heater"];
 const COLORS = ["blue", "white", "red"];
-// Categorical series colours (validated for colour-blind separation), light and dark.
+// Categorical series colours (validated for colour-blind separation), light and dark:
+// the appliances take the first six, the battery the green and the violet.
 const SERIES = {
-  light: ["#257de0", "#f47230", "#00b894", "#f2a600", "#ee7fac", "#008a17", "#6a4ce2", "#ec4647"],
-  dark: ["#338ced", "#e76624", "#00a888", "#d28e05", "#e24d8b", "#0aac23", "#9887ef", "#eb6263"],
+  light: ["#257de0", "#f47230", "#00b894", "#f2a600", "#ee7fac", "#ec4647"],
+  dark: ["#338ced", "#e76624", "#00a888", "#d28e05", "#e24d8b", "#eb6263"],
+};
+const SOURCES = {
+  light: { supply: "#008a17", charge: "#6a4ce2" },
+  dark: { supply: "#0aac23", charge: "#9887ef" },
 };
 // The power form shares some field names with the appliance form.
 const POWER_LABELS = { power_entity: "field_power_entity_grid", enabled: "field_power_enabled" };
@@ -486,6 +499,7 @@ class TempoPlannerPanel extends LitElement {
       ${!s.today_color_entity
         ? html`<div class="banner warning">${this._t("no_today_color")}</div>`
         : nothing}
+      ${s.power?.power_entity ? this._renderChartCard() : nothing}
       <div class="grid">
       <div class="card">
         <div class="days">
@@ -524,7 +538,6 @@ class TempoPlannerPanel extends LitElement {
             </ul>`}
       </div>
       </div>
-      ${s.power?.power_entity ? this._renderChartCard() : nothing}
     `;
   }
 
@@ -590,8 +603,10 @@ class TempoPlannerPanel extends LitElement {
       stack.push({ appliance: a, low: below, high: top });
       below = top;
     }
+    const house = c.house && c.house.some((v) => v !== null) ? c.house : null;
+    // What shedding avoided comes on top of what was used: the house, or the grid.
     const avoided = [];
-    let base = c.grid ? c.grid.map((g, i) => g ?? below[i]) : below;
+    let base = (c.grid || below).map((g, i) => Math.max(g ?? below[i], house?.[i] ?? 0));
     for (const a of appliances.filter((a) => a.avoided.some((v) => v > 0))) {
       const top = base.map((v, i) => v + a.avoided[i]);
       avoided.push({ appliance: a, low: base, high: top });
@@ -605,7 +620,9 @@ class TempoPlannerPanel extends LitElement {
       ...c.soft.map((v) => v ?? 0),
       c.hard ?? 0,
     );
-    return { c, n, start, step, appliances, stack, avoided, top: niceCeil(peak * 1.05) };
+    const sources = this.hass?.themes?.darkMode ? SOURCES.dark : SOURCES.light;
+    const top = Math.max(peak, ...(house || []).map((v) => v ?? 0));
+    return { c, n, start, step, appliances, stack, avoided, house, sources, top: niceCeil(top * 1.05) };
   }
 
   _renderChart() {
@@ -714,6 +731,21 @@ class TempoPlannerPanel extends LitElement {
             fill-opacity="0.85"
           ></path>`,
         )}
+        ${m.house
+          ? (() => {
+              const grid = c.grid.map((v) => v ?? 0);
+              const house = m.house.map((v, i) => v ?? grid[i]);
+              const supplyHigh = house.map((h, i) => Math.max(h, grid[i]));
+              const chargeLow = house.map((h, i) => Math.min(h, grid[i]));
+              return svg`<path
+                  d=${area(grid, supplyHigh)}
+                  fill=${m.sources.supply}
+                  fill-opacity="0.3"
+                ></path>
+                <path d=${area(chargeLow, grid)} fill=${m.sources.charge} fill-opacity="0.3"></path>
+                <path class="house-line" d=${line(m.house)}></path>`;
+            })()
+          : nothing}
         ${m.avoided.map(
           ({ appliance, low, high }) => svg`<path
             class="stack"
@@ -744,6 +776,19 @@ class TempoPlannerPanel extends LitElement {
       ${hover !== null ? this._renderTooltip(m, hover, x(hover), W) : nothing}
       <div class="legend">
         <span><i class="key grid"></i>${this._t("chart_grid")}</span>
+        ${m.house
+          ? html`<span><i class="key house"></i>${this._t("chart_house")}</span>
+              <span
+                ><i class="key" style="background: ${m.sources.supply}; opacity: 0.5"></i>${this._t(
+                  "chart_supply",
+                )}</span
+              >
+              <span
+                ><i class="key" style="background: ${m.sources.charge}; opacity: 0.5"></i>${this._t(
+                  "chart_charge",
+                )}</span
+              >`
+          : nothing}
         <span><i class="key soft"></i>${this._t("chart_soft")}</span>
         ${c.hard !== null && c.hard !== undefined
           ? html`<span><i class="key hard"></i>${this._t("chart_hard")}</span>`
@@ -799,6 +844,21 @@ class TempoPlannerPanel extends LitElement {
         ${at.toLocaleTimeString(this.hass.language, { hour: "2-digit", minute: "2-digit" })}
       </div>
       <div><i class="key grid"></i>${this._t("chart_grid")} <b>${value(c.grid[i])}</b></div>
+      ${m.house && m.house[i] !== null
+        ? html`<div><i class="key house"></i>${this._t("chart_house")} <b>${value(m.house[i])}</b></div>
+            ${m.house[i] - (c.grid[i] ?? 0) > 0.05
+              ? html`<div>
+                  <i class="key" style="background: ${m.sources.supply}"></i>${this._t("chart_supply")}
+                  <b>${value(m.house[i] - (c.grid[i] ?? 0))}</b>
+                </div>`
+              : nothing}
+            ${(c.grid[i] ?? 0) - m.house[i] > 0.05
+              ? html`<div>
+                  <i class="key" style="background: ${m.sources.charge}"></i>${this._t("chart_charge")}
+                  <b>${value((c.grid[i] ?? 0) - m.house[i])}</b>
+                </div>`
+              : nothing}`
+        : nothing}
       ${c.soft[i] !== null
         ? html`<div><i class="key soft"></i>${this._t("chart_soft")} <b>${value(c.soft[i])}</b></div>`
         : nothing}
@@ -1310,6 +1370,7 @@ class TempoPlannerPanel extends LitElement {
     return [
       { name: "enabled", selector: { boolean: {} } },
       { name: "power_entity", selector: { entity: { domain: "sensor", device_class: "power" } } },
+      { name: "house_entity", selector: { entity: { domain: "sensor", device_class: "power" } } },
       { name: "soft_limit_kw", selector: kw },
       { name: "hard_limit_kw", selector: kw },
       {
@@ -1568,6 +1629,12 @@ class TempoPlannerPanel extends LitElement {
       stroke-linejoin: round;
     }
     /* The limits in neutral ink and dashes, apart from the series' colours. */
+    .house-line {
+      fill: none;
+      stroke: var(--secondary-text-color);
+      stroke-width: 1.5;
+      stroke-linejoin: round;
+    }
     .soft-line {
       fill: none;
       stroke: var(--secondary-text-color);
@@ -1632,6 +1699,11 @@ class TempoPlannerPanel extends LitElement {
       height: 2px;
       vertical-align: 3px;
       background: var(--primary-text-color);
+    }
+    .key.house {
+      height: 2px;
+      vertical-align: 3px;
+      background: var(--secondary-text-color);
     }
     .key.soft,
     .key.hard {

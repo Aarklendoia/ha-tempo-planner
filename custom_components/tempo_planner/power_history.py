@@ -44,7 +44,8 @@ async def async_power_history(
         for a in appliances
     }
     grid = shedder.power.power_entity
-    powers = [e for e in {a.power_entity for a in appliances} | {grid} if e]
+    house = shedder.power.house_entity
+    powers = [e for e in {a.power_entity for a in appliances} | {grid, house} if e]
     states = await _async_states(hass, powers, start, end, attributes=False)
     sheds = await _async_states(
         hass, [e for e in shed_entities.values() if e], start, end, attributes=True
@@ -108,6 +109,7 @@ async def async_power_history(
         "count": count,
         "now": end.isoformat(),
         "grid": series(grid),
+        "house": series(house),
         "soft": soft,
         "hard": shedder.power.hard_limit_kw,
         "appliances": result,

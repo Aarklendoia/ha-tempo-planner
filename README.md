@@ -122,7 +122,10 @@ now against the limits, the shedding order (up/down) and the settings. The *Now*
 tab charts the last 6 or 24 hours: the power drawn from the grid, the limits,
 each appliance's power stacked, the power avoided by shedding (hatched, above
 the grid line) and a row per appliance with its shedding periods
-(`tempo_planner/power/history`).
+(`tempo_planner/power/history`). With a *house consumption* power sensor in the
+power settings, the chart also draws what the house uses: the gap with the grid
+is what the battery and the sun supply, or, when the grid draws more, the
+battery charging.
 
 At 06:00 the current colour entity of RTE Tempo lags a few seconds behind: the
 colour announced the day before is used until it catches up.
@@ -282,8 +285,9 @@ ceux marqués « seuil dur seulement » (la borne de la voiture). Ils reviennent
 par un, le dernier d'abord, quand il y a la place. L'onglet *Puissance* du
 panneau montre la puissance face aux seuils, l'ordre de délestage et les
 réglages ; l'onglet *Maintenant* trace les 6 ou 24 dernières heures : la
-puissance tirée du réseau, les seuils, la consommation de chaque appareil et ce
-que le délestage a évité.
+puissance tirée du réseau, la consommation de la maison (l'écart, c'est la
+batterie : ce qu'elle fournit ou ce qu'elle charge), les seuils, la
+consommation de chaque appareil et ce que le délestage a évité.
 
 Installation par HACS (dépôt personnalisé ci-dessus), puis *Paramètres →
 Appareils et services → Ajouter une intégration → Tempo Planner*. Seule la
