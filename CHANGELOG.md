@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.9.0...v0.9.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* the panel uses the width of large screens ([#48](https://github.com/Aarklendoia/ha-tempo-planner/issues/48)) ([059e659](https://github.com/Aarklendoia/ha-tempo-planner/commit/059e6593decdb28372add0bfc2823688c4ba271e)), closes [#47](https://github.com/Aarklendoia/ha-tempo-planner/issues/47)
+
 ## [0.9.0](https://github.com/Aarklendoia/ha-tempo-planner/compare/v0.8.0...v0.9.0) (2026-11-25)
 
 
