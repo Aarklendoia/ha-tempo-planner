@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
 from . import const
+from .announcements import AnnouncementSettings, Channel
 from .coordinator import TempoPlannerCoordinator, entry_config
 from .load_shedding import LoadShedder, signal_update
 from .planner import Color
@@ -69,6 +70,26 @@ _POWER = vol.Schema(
 )
 
 
+_COLOR_LIST = [vol.In([str(Color.BLUE), str(Color.WHITE), str(Color.RED)])]
+
+_ANNOUNCEMENTS = vol.Schema(
+    {
+        vol.Optional("notify_enabled", default=False): cv.boolean,
+        vol.Optional("notify_colors", default=[str(Color.WHITE), str(Color.RED)]): _COLOR_LIST,
+        vol.Optional("notify_targets", default=[]): [cv.string],
+        vol.Optional("voice_enabled", default=False): cv.boolean,
+        vol.Optional("voice_colors", default=[str(Color.WHITE), str(Color.RED)]): _COLOR_LIST,
+        vol.Optional("voice_time", default="19:00:00"): vol.All(cv.time, vol.Coerce(str)),
+        vol.Optional("tts_entity"): vol.Any(None, cv.entity_id),
+        vol.Optional("media_players", default=[]): [cv.entity_id],
+        vol.Optional("voice_only_home", default=True): cv.boolean,
+        vol.Optional("car_reminder_pct", default=80): vol.Any(
+            None, vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
+        ),
+    }
+)
+
+
 @callback
 def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_list)
@@ -77,6 +98,8 @@ def async_register(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_power_save)
     websocket_api.async_register_command(hass, ws_power_history)
+    websocket_api.async_register_command(hass, ws_announcements_save)
+    websocket_api.async_register_command(hass, ws_announcements_test)
 
 
 def _coordinator(hass: HomeAssistant) -> TempoPlannerCoordinator | None:
@@ -111,6 +134,7 @@ def snapshot(coordinator: TempoPlannerCoordinator) -> dict[str, Any]:
             "soft_limit_now": soft,
             "hard_limit_now": hard,
         },
+        "announcements": coordinator.announcer.settings.to_dict(),
     }
 
 
@@ -250,3 +274,45 @@ async def ws_power_history(
         _not_loaded(connection, msg)
         return
     connection.send_result(msg["id"], await async_power_history(hass, coordinator, msg["hours"]))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {vol.Required("type"): "tempo_planner/announcements/save", vol.Required("announcements"): dict}
+)
+@websocket_api.async_response
+async def ws_announcements_save(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    if (coordinator := _coordinator(hass)) is None:
+        _not_loaded(connection, msg)
+        return
+    try:
+        data = _ANNOUNCEMENTS(msg["announcements"])
+    except vol.Invalid as err:
+        connection.send_error(msg["id"], "invalid_format", str(err))
+        return
+    if found := AnnouncementSettings.from_dict(data).problems():
+        connection.send_error(msg["id"], "invalid_announcements", ", ".join(found))
+        return
+    settings = await coordinator.announcer.async_save(data)
+    connection.send_result(msg["id"], {"announcements": settings.to_dict()})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "tempo_planner/announcements/test",
+        vol.Required("channel"): vol.In([str(c) for c in Channel]),
+    }
+)
+@websocket_api.async_response
+async def ws_announcements_test(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Announce tomorrow now on a channel, to hear or read what it says."""
+    if (coordinator := _coordinator(hass)) is None:
+        _not_loaded(connection, msg)
+        return
+    await coordinator.announcer.async_test(Channel(msg["channel"]))
+    connection.send_result(msg["id"])

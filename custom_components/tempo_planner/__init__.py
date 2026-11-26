@@ -9,6 +9,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
 from . import panel, websocket
+from .announcer import Announcer
 from .const import DOMAIN
 from .coordinator import TempoPlannerConfigEntry, TempoPlannerCoordinator, entry_config
 from .load_shedding import LoadShedder
@@ -31,11 +32,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: TempoPlannerConfigEntry)
         hass, entry.entry_id, coordinator.settings, entry_config(entry)
     )
     await coordinator.shedder.async_load()
+    coordinator.announcer = Announcer(
+        hass, entry.entry_id, coordinator.settings, entry_config(entry), coordinator.shedder
+    )
+    await coordinator.announcer.async_load()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # After the platforms: the appliances' entities follow from the start.
     await coordinator.shedder.async_start()
     entry.async_on_unload(coordinator.shedder.async_stop)
+    await coordinator.announcer.async_start()
+    entry.async_on_unload(coordinator.announcer.async_stop)
     integration = await async_get_integration(hass, DOMAIN)
     await panel.async_register_panel(hass, str(integration.version))
     return True
