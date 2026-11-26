@@ -3,7 +3,12 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from custom_components.tempo_planner.chart import bucket_means, on_intervals, value_before
+from custom_components.tempo_planner.chart import (
+    bucket_means,
+    merge_means,
+    on_intervals,
+    value_before,
+)
 
 PARIS = ZoneInfo("Europe/Paris")
 STEP = timedelta(minutes=5)
@@ -46,3 +51,19 @@ def test_value_before():
     assert value_before(series, at(10), at(10, 15), STEP) == 0.2
     assert value_before(series, at(10), at(10, 12), STEP) == 1.5
     assert value_before(series, at(10), at(10, 2), STEP) is None
+
+
+def test_merge_means() -> None:
+    start = datetime(2026, 11, 23, 16, 0)
+    step = timedelta(minutes=5)
+    raw = [None, None, 1.0, 2.0]
+    rows = [
+        (start, 0.5),
+        (start + step, None),
+        (start + 2 * step, 1.25),
+        # Outside the chart: left out.
+        (start - step, 9.0),
+        (start + 4 * step, 9.0),
+    ]
+    assert merge_means(raw, rows, start, step) == [0.5, None, 1.25, 2.0]
+    assert raw == [None, None, 1.0, 2.0]

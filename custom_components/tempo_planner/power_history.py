@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from . import const
-from .chart import bucket_means, on_intervals, value_before
+from .chart import bucket_means, merge_means, on_intervals, value_before
 from .coordinator import TempoPlannerCoordinator
 from .planner import tempo_day
 from .shedding import Behaviour, to_kw
@@ -45,8 +45,15 @@ async def async_power_history(
     }
     grid = shedder.power.power_entity
     house = shedder.power.house_entity
-    powers = [e for e in {a.power_entity for a in appliances} | {grid, house} if e]
-    states = await _async_states(hass, powers, start, end, attributes=False)
+    powers = sorted(e for e in {a.power_entity for a in appliances} | {grid, house} if e)
+    # The recorder's 5-minute means, then the raw states where they stop: the
+    # minutes not compiled yet, or a sensor without statistics.
+    means = await _async_means(hass, powers, start, end)
+    since = min(
+        (rows[-1][0] + STEP if (rows := means.get(e)) else start for e in powers),
+        default=start,
+    )
+    states = await _async_states(hass, powers, max(start, min(since, end)), end, attributes=False)
     sheds = await _async_states(
         hass, [e for e in shed_entities.values() if e], start, end, attributes=True
     )
@@ -60,7 +67,8 @@ async def async_power_history(
             (state.last_changed, None if _missing(state) else to_kw(state.state, unit))
             for state in states.get(entity_id, [])
         ]
-        return bucket_means(samples, start, end, STEP)[:count]
+        rows = [(at, to_kw(str(mean), unit)) for at, mean in means.get(entity_id, [])]
+        return merge_means(bucket_means(samples, start, end, STEP)[:count], rows, start, STEP)
 
     soft = []
     for index in range(count):
@@ -116,6 +124,40 @@ async def async_power_history(
         "soft": soft,
         "hard": shedder.power.hard_limit_kw,
         "appliances": result,
+    }
+
+
+async def _async_means(
+    hass: HomeAssistant, entity_ids: list[str], start: datetime, end: datetime
+) -> dict[str, list[tuple[datetime, float]]]:
+    """The 5-minute means the recorder compiled, by sensor."""
+    if not entity_ids or "recorder" not in hass.config.components:
+        return {}
+
+    from homeassistant.components.recorder import get_instance, statistics
+
+    try:
+        found = await get_instance(hass).async_add_executor_job(
+            statistics.statistics_during_period,
+            hass,
+            dt_util.as_utc(start),
+            dt_util.as_utc(end),
+            set(entity_ids),
+            "5minute",
+            None,
+            {"mean"},
+        )
+    except Exception:  # noqa: BLE001 - the raw states will do
+        _LOGGER.exception("Cannot read the statistics of %s", entity_ids)
+        return {}
+    return {
+        entity_id: [
+            (dt_util.utc_from_timestamp(row["start"]), row["mean"])
+            for row in rows
+            if row.get("mean") is not None
+        ]
+        for entity_id, rows in found.items()
+        if rows
     }
 
 

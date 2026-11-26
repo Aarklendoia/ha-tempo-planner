@@ -346,6 +346,10 @@ const EMPTY = {
   normal_option: null,
 };
 
+// The last chart of each range, kept while Home Assistant's page stays open:
+// shown at once when the panel opens again, then refreshed.
+const chartCache = new Map();
+
 // ha-form and its selectors are loaded on demand by the frontend: opening a
 // card editor pulls them in.
 let formsLoaded;
@@ -402,8 +406,8 @@ class TempoPlannerPanel extends LitElement {
     this._formError = null;
     this._saving = false;
     this._formsReady = false;
-    this._chart = null;
     this._chartHours = 24;
+    this._chart = chartCache.get(this._chartHours) ?? null;
     this._chartWidth = 0;
     this._hover = null;
   }
@@ -426,7 +430,8 @@ class TempoPlannerPanel extends LitElement {
     // The chart refreshes every minute while the Now tab shows it.
     const wanted = this._tab === "now" && !!this._snapshot?.power?.power_entity;
     if (wanted && !this._chartTimer) {
-      this._loadChart();
+      // Already asked for when the panel opened.
+      if (!this._chartLoading && Date.now() - (this._chartAt || 0) > 10000) this._loadChart();
       this._chartTimer = setInterval(() => this._loadChart(), 60000);
     } else if (!wanted) {
       this._stopChart();
@@ -448,19 +453,26 @@ class TempoPlannerPanel extends LitElement {
   }
 
   async _loadChart() {
+    const hours = this._chartHours;
+    this._chartLoading = true;
     try {
-      this._chart = await this.hass.callWS({
-        type: "tempo_planner/power/history",
-        hours: this._chartHours,
-      });
+      const chart = await this.hass.callWS({ type: "tempo_planner/power/history", hours });
+      chartCache.set(hours, chart);
+      // The range may have changed meanwhile.
+      if (hours === this._chartHours) this._chart = chart;
+      this._chartAt = Date.now();
       this._chartError = null;
     } catch (err) {
       this._chartError = err.message || String(err);
+    } finally {
+      this._chartLoading = false;
     }
   }
 
   _subscribe() {
     if (this._unsub || !this.hass) return;
+    // The history alongside the first snapshot, not after it.
+    if (this._tab === "now" && !this._chartLoading) this._loadChart();
     this._unsub = this.hass.connection.subscribeMessage(
       (snapshot) => {
         this._snapshot = snapshot;
@@ -637,7 +649,7 @@ class TempoPlannerPanel extends LitElement {
                 aria-pressed=${this._chartHours === hours}
                 @click=${() => {
                   this._chartHours = hours;
-                  this._chart = null;
+                  this._chart = chartCache.get(hours) ?? null;
                   this._loadChart();
                 }}
               >
@@ -658,7 +670,16 @@ class TempoPlannerPanel extends LitElement {
     return this.hass?.themes?.darkMode ? SERIES.dark : SERIES.light;
   }
 
+  // Recomputed only when the data or the theme change, not on every hass update.
   _chartModel() {
+    const dark = !!this.hass?.themes?.darkMode;
+    if (this._model && this._model.c === this._chart && this._modelDark === dark) return this._model;
+    this._modelDark = dark;
+    this._model = this._buildModel();
+    return this._model;
+  }
+
+  _buildModel() {
     const c = this._chart;
     const n = c.count;
     const start = new Date(c.start).getTime();

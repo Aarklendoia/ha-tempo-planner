@@ -1,16 +1,20 @@
 """The power chart's series, read from the recorder."""
 
 from datetime import datetime
+from unittest.mock import patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
+from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 from pytest_homeassistant_custom_component.components.recorder.common import (
     async_wait_recording_done,
+    do_adhoc_statistics,
 )
 
-from custom_components.tempo_planner import const
+from custom_components.tempo_planner import const, power_history
 from custom_components.tempo_planner.power_history import async_power_history
 
 from .conftest import PARIS
@@ -128,3 +132,46 @@ async def test_power_history(
     car = chart["appliances"][1]
     assert car["name"] == "Car"
     assert car["shed"] == []
+
+
+async def test_power_history_from_statistics(
+    recorder_mock, hass: HomeAssistant, house, freezer: FrozenDateTimeFactory
+) -> None:
+    """The recorder's 5-minute means first, the raw states after them."""
+    assert await async_setup_component(hass, "sensor", {})
+    attributes = {**W, "state_class": "measurement", "device_class": "power"}
+    hass.states.async_set("sensor.grid_power", "1000", attributes)
+    entry = MockConfigEntry(
+        domain=const.DOMAIN, data=ENTITIES, options=SETTINGS, unique_id=const.DOMAIN
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await entry.runtime_data.shedder.async_save_power(
+        {"power_entity": "sensor.grid_power", "hard_limit_kw": 9}
+    )
+    await async_wait_recording_done(hass)
+
+    # 16:00-16:05: 1 kW then 3 kW half way; compiled into one 2 kW mean.
+    freezer.move_to(datetime(2026, 11, 23, 16, 2, 30, tzinfo=PARIS))
+    hass.states.async_set("sensor.grid_power", "3000", attributes)
+    await async_wait_recording_done(hass)
+    freezer.move_to(datetime(2026, 11, 23, 16, 6, tzinfo=PARIS))
+    do_adhoc_statistics(hass, start=dt_util.as_utc(datetime(2026, 11, 23, 16, 0, tzinfo=PARIS)))
+    await async_wait_recording_done(hass)
+    # The state history of 16:00-16:05 is gone: only the statistics can tell.
+    hass.states.async_set("sensor.grid_power", "5000", attributes)
+    await async_wait_recording_done(hass)
+    freezer.move_to(datetime(2026, 11, 23, 16, 8, tzinfo=PARIS))
+
+    with patch(
+        "custom_components.tempo_planner.power_history._async_states",
+        wraps=power_history._async_states,
+    ) as states:
+        chart = await async_power_history(hass, entry.runtime_data, 1)
+    # The raw states are read from the end of the statistics only.
+    assert states.call_args_list[0].args[2] == datetime(2026, 11, 23, 16, 5, tzinfo=PARIS)
+    assert chart["start"] == "2026-11-23T15:10:00+01:00"
+    grid = chart["grid"]
+    assert grid[10] == 2.0  # 16:00, the mean
+    assert grid[11] == 4.333  # 16:05-16:08, raw: 3 kW for 1 min, then 5 kW for 2
