@@ -11,7 +11,11 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_state_change_event,
+    async_track_time_change,
+)
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -24,6 +28,9 @@ from .shedding import Behaviour
 _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
+
+# The speakers get their volume back when they stop playing, or after this.
+RESTORE_AFTER = 60
 
 
 class Announcer:
@@ -162,9 +169,67 @@ class Announcer:
             "media_player_entity_id": self.settings.media_players,
             "message": message,
         }
+        saved = await self._set_volume()
         # The engine may not know the bare language: then its own default.
         if not await self._call("tts", "speak", {**data, "language": language}, quiet=True):
             await self._call("tts", "speak", data)
+        if saved:
+            self._restore_volume(saved)
+
+    async def _set_volume(self) -> dict[str, float]:
+        """Set the announcement volume; the volumes to put back."""
+        if self.settings.voice_volume is None:
+            return {}
+        saved = {}
+        for player in self.settings.media_players:
+            state = self.hass.states.get(player)
+            level = state.attributes.get("volume_level") if state else None
+            if level is not None:
+                saved[player] = level
+        await self._call(
+            "media_player",
+            "volume_set",
+            {
+                "entity_id": self.settings.media_players,
+                "volume_level": round(self.settings.voice_volume / 100, 2),
+            },
+        )
+        return saved
+
+    @callback
+    def _restore_volume(self, saved: dict[str, float]) -> None:
+        """Put the volumes back once every speaker has stopped playing."""
+        playing = set(saved)
+        unsubs: list[Callable[[], None]] = []
+
+        @callback
+        def restore(*_: Any) -> None:
+            if not unsubs:
+                return
+            for unsub in unsubs:
+                unsub()
+            unsubs.clear()
+            for player, level in saved.items():
+                self.hass.async_create_task(
+                    self._call(
+                        "media_player", "volume_set", {"entity_id": player, "volume_level": level}
+                    )
+                )
+
+        @callback
+        def changed(event: Event[EventStateChangedData]) -> None:
+            old, new = event.data["old_state"], event.data["new_state"]
+            if (
+                old is not None
+                and old.state == "playing"
+                and (new is None or new.state != "playing")
+            ):
+                playing.discard(event.data["entity_id"])
+                if not playing:
+                    restore()
+
+        unsubs.append(async_track_state_change_event(self.hass, list(saved), changed))
+        unsubs.append(async_call_later(self.hass, RESTORE_AFTER, restore))
 
     async def _call(
         self, domain: str, service: str, data: dict[str, Any], quiet: bool = False

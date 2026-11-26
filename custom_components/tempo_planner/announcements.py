@@ -41,6 +41,8 @@ class AnnouncementSettings:
     media_players: list[str] = field(default_factory=list)
     # Spoken only when someone is at home (zone.home counts the people in it).
     voice_only_home: bool = True
+    # The speakers' volume (%) for the announcement; None: as they are.
+    voice_volume: float | None = None
     # On the eve of a red day, the car under this charge (%) is to be plugged in.
     car_reminder_pct: float | None = 80.0
 
@@ -63,6 +65,7 @@ class AnnouncementSettings:
             "tts_entity": self.tts_entity,
             "media_players": list(self.media_players),
             "voice_only_home": self.voice_only_home,
+            "voice_volume": self.voice_volume,
             "car_reminder_pct": self.car_reminder_pct,
         }
 
@@ -80,6 +83,7 @@ class AnnouncementSettings:
             tts_entity=data.get("tts_entity"),
             media_players=list(data.get("media_players") or []),
             voice_only_home=bool(data.get("voice_only_home", default.voice_only_home)),
+            voice_volume=data.get("voice_volume"),
             car_reminder_pct=data.get("car_reminder_pct", default.car_reminder_pct),
         )
 
